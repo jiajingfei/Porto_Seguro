@@ -110,7 +110,11 @@ class Model(C):
         f.close()
 
 
-''' gradient boosting trees '''
+''' gradient boosting trees
+num_boost_round
+early_stopping_rounds
+and all other xgb_params
+'''
 class Xgb_trees(C):
     def train(self, df_train, df_valid):
         train_x = get_features(df_train).values
@@ -145,7 +149,12 @@ class Xgb_trees(C):
         preds = self._model.predict(xgb.DMatrix(df.values))
         return pd.Dataframe(data={'target': preds})
 
-
+'''
+params:
+n_splits
+is_stratified
+random_state
+'''
 class Kfold(C):
     def split_data(self, df):
         inds = []
@@ -162,6 +171,12 @@ class Kfold(C):
         return [(df.iloc[train_ind], df.iloc[test_ind]) for (train_ind, test_ind) in inds]
 
 
+'''
+params:
+features_to_drop
+features_to_reorder
+features_to_revert
+'''
 class Feature_transformation(C):
 
     def drop_features(self, df, features=None):
@@ -226,6 +241,13 @@ class Feature_transformation(C):
                 for f in feas:
                     del df[f]
             return df
+
+    def transform(self, df_train, df_test):
+        df_train = self.drop_features(df_train)
+        df_test = self.drop_features(df_test)
+        df_train = self.revert_one_hot(df_train)
+        df_test = self.revert_one_hot(df_test)
+        return self.reorder_feature(df_train, df_test)
 
 def combine_params(params_list):
     params = {}
