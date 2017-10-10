@@ -1,2 +1,0 @@
-Need to use Git LFS to upload train.csv and test.csv
-https://git-lfs.github.com/
