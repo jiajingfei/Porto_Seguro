@@ -4,5 +4,6 @@
 .Trashes
 Thumbs.db
 /data/*
-/.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
 *.csv
+*.pyc
