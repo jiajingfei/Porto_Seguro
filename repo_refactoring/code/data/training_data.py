@@ -15,21 +15,34 @@ class Training_data(object):
         self._train = pd.read_csv(os.path.join(directory, train_file))
         return None
 
-    def output_small_data_for_sanity_check(self, output_directory, nrows=500):
-        if os.path.exists(output_directory):
-            output_directory = os.path.abspath(output_directory)
-            print ('WARNING: {} already exists, will overwrite it'.format(output_directory))
-        else:
+    def __output_generated_data(self, train, test, output_directory):
+        if not os.path.exists(output_directory):
             os.system('mkdir -p {}'.format(output_directory))
-
-        df = shuffle(self._train)
-        train = df[:nrows].copy()
-        test = df[nrows:2*nrows].copy()
         test_target = test[[self._label_col]]
         del test[self._label_col]
         train.to_csv(os.path.join(output_directory, train_file), index=False)
         test.to_csv(os.path.join(output_directory, test_file), index=False)
         test_target.to_csv(os.path.join(output_directory, test_target_file), index=False)
+        with open(os.path.join(output_directory, 'readme.txt'), 'w') as f:
+            readme_lines = [
+                'this directory is for generated training data and validation data\n',
+                'including:\n',
+                train_file + '\n',
+                test_file + '\n',
+                test_target_file + '\n'
+            ]
+            f.writelines(readme_lines)
+
+    def output_small_data_for_sanity_check(self, output_directory, nrows=500):
+        if os.path.exists(output_directory):
+            output_directory = os.path.abspath(output_directory)
+            print ('WARNING: {} already exists, will overwrite it'.format(output_directory))
+
+        df = shuffle(self._train)
+        train = df[:nrows].copy()
+        test = df[nrows:2*nrows].copy()
+        test_target = test[[self._label_col]]
+        self.__output_generated_data(train, test, output_directory)
 
     # Default output_directory is base_data_dir + today's date
     def output_split(self, validation_proportion=0.3, output_directory=None):
@@ -46,13 +59,7 @@ class Training_data(object):
             indices = sss.split(X=df, y=df.target).next()
             train = df.iloc[indices[0]]
             test = df.iloc[indices[1]]
-            test_target = test[[self._label_col]]
-            del test[self._label_col]
-            # create directory right before output files
-            os.system('mkdir -p {}'.format(output_directory))
-            train.to_csv(os.path.join(output_directory, train_file), index=False)
-            test.to_csv(os.path.join(output_directory, test_file), index=False)
-            test_target.to_csv(os.path.join(output_directory, test_target_file), index=False)
+            self.__output_generated_data(train, test, output_directory)
 
     def kfold(self, n_splits, random_state=3223):
         results = []
