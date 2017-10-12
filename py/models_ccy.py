@@ -292,6 +292,7 @@ class my_xgb():
         
         # set some check flags
         self.scaling_flag = False
+        self.one_hot_flag = False
     
     # Define the gini metric - from https://www.kaggle.com/c/ClaimPredictionChallenge/discussion/703#5897
     def gini(self, actual, pred, cmpcol = 0, sortcol = 1):
@@ -337,13 +338,14 @@ class my_xgb():
         X_test: <pandas dataframe>
             scaled test X
         y_test: <pandas dataframe>
-            lables for test X
+            labels for test X
         '''
         from sklearn.model_selection import train_test_split
         from sklearn.preprocessing import StandardScaler
         #from sklearn.model_selection import GridSearchCV
         #from sklearn.metrics import confusion_matrix
-  
+        
+        cols = self.X_raw.columns  
         self.X_train, self.X_test, self.y_train, self.y_test \
             = train_test_split(self.X_raw, self.y_raw, test_size=ratio)
         # scaling the features
@@ -354,28 +356,97 @@ class my_xgb():
         self.X_test = scaler.transform(self.X_test)  # apply same transformation to test data
         print('Splitted training/test, and applied standard scaler.')
         print('Total number of training samples: {}'.format(len(self.X_train)))
+        self.X_train = pd.DataFrame(self.X_train, columns=cols)
+        self.y_train = pd.DataFrame(self.y_train)
+        self.X_test = pd.DataFrame(self.X_test, columns=cols)
+        self.y_test = pd.DataFrame(self.y_test)
+
         self.scaling_flag = True
-  
-    def fit(self, X_train=None, y_train=None, K=5):
-        '''doc...
-        Also do k-fold CV
+
+    def one_hot_encoding(self, X_train=None, X_test=None):
         '''
+        One hot eocoding the features with _cat suffix
+
+        Input
+        ============
+        X_train: <pd dataframe>, default: None
+            The non-one-hot-encoded dataframe. If None, use the inherent one.
+        X_test: <pd dataframe>, default: None
+            The non-one-hot-encoded dataframe for test. If None, use the inherent one.
+
+        Return
+        ============
+        Nothing, but update self.X_train and self.X_test
+        '''
+        if X_train is None:
+            X_train = self.X_train
+        if X_test is None:
+            X_test = self.X_test
+        print('Shape of dataframe before one hot encoding is {}.'.format(X_train.shape))
+        
+        to_one_hot = []
+        idx = X_train.shape[0]  # boundary
+        X_tot = pd.concat((X_train, X_test))  # put the together so that one hot encode on both of them
+        for col in X_tot.columns:
+            if col.endswith('_cat'):
+                to_one_hot.append(col)
+        X_tot = pd.get_dummies(X_tot, columns=to_one_hot)
+        self.X_train = X_tot.iloc[:idx, :]
+        self.X_test = X_tot.iloc[idx:, :]
+        self.one_hot_flag = True
+        print('Done one hot encoding on {} features'.format(len(to_one_hot)))
+        print('Shape of dataframe after one hot encoding is {}.'.format(self.X_train.shape))
+
+  
+    def fit(self, X_train=None, y_train=None, K=5, params=None, one_hot=True):
+        '''
+        perform the k-fold cross validation to train the xgboost model
+
+        Input
+        ============
+        X_train: <pd dataframe>, default: None
+            A pandas dataframe that contains all the features. If None, use the inherent one.
+        y_train: <pd dataframe>, default: None
+            A pandas dataframe that contains all labels. If None, use the inherent one.
+        K: <int>, default: 5
+            number of folds
+        params: <dict>, defautl: None
+            parameters for the xgboost model. If None, then use the inherent one.
+        one_hot: <Boolean>, default: True
+            If True, requires the dataset is one_hot_encoded. 
+
+        Return
+        ============
+        xgb_models: <list>
+            A list of K models, that are trained on different n_splits
+        xgb_metrics: <list>
+            A list of dictionaries that contains the evaluation metrics on the train and validation set
+        '''
+
         import xgboost as xgb 
         from sklearn.model_selection import StratifiedKFold
         
         if not self.scaling_flag:
             print('The inputs are not scaled, stop training.')
             return
+        if one_hot and not self.one_hot_flag:
+            print('The categorical features are not one hot encoded, stop training.')
+            return
         
         if X_train is None:
             X_train = self.X_train
         if y_train is None:
             y_train = self.y_train
+        if params is None:
+            params = self.params
         
-        xgb_preds = []
-        target_train = y_train.values
-        train = np.array(X_train)
-        test = np.array(self.X_test)
+        xgb_models = []
+        xgb_metrics = []
+        xgb_preds = []  # currently not return
+        
+        target_train = y_train.values.squeeze()
+        train = np.array(X_train.values)
+        test = np.array(self.X_test.values)
         # k-fold CV
         K = 5
         kf = StratifiedKFold(n_splits=K, random_state=3228, shuffle=True)
@@ -398,31 +469,26 @@ class my_xgb():
             print('class weight is: {}'.format(sum_wneg/sum_wpos))
             
             watchlist = [(d_train, 'train'), (d_valid, 'valid')]
-            self.model = xgb.train(self.params, 
+            evals_result = {}
+            self.model = xgb.train(params, 
                                   d_train, 
                                   5000,  
                                   watchlist, 
                                   feval=self.gini_xgb, 
                                   maximize=True, 
                                   verbose_eval=100, 
-                                  early_stopping_rounds=100)
+                                  early_stopping_rounds=100,
+                                  evals_result=evals_result)
             # make prediction!
             xgb_pred = self.model.predict(d_test)
             xgb_preds.append(list(xgb_pred))
-            fold += 1
-        return xgb_preds
+            
+            # prepare the return values
+            xgb_models.append(self.model)
+            # metrics = evals_result[watchlist[0][-1]].keys()
+            xgb_metrics.append(evals_result)
 
-## main testing scripts
-#if __name__ == '__main__':
-#  df = pd.read_csv('./data/train.csv')
-#  # replace the -1 with NaN, so that I can use pandas.dropna...
-#  df.replace({-1: np.float('NaN')}, inplace=True)
-#  all_features = df.columns.tolist()
-#  all_features.remove('target')
-#  all_features.remove('id')
-#  df.dropna(how='any', inplace=True)
-#  
-#  X_raw, y_raw = df[all_features], df['target']
-#  clf = Classifier(X_raw=X_raw, y_raw=y_raw)
-#  clf.input_scaling()
-#  lg_clf = clf.logistic_regression(tuning=False)
+            fold += 1
+        return xgb_models, xgb_metrics
+
+
