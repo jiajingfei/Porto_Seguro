@@ -398,7 +398,7 @@ class my_xgb():
         print('Shape of dataframe after one hot encoding is {}.'.format(self.X_train.shape))
 
   
-    def fit(self, X_train=None, y_train=None, K=5, params=None, one_hot=True):
+    def fit(self, X_train=None, y_train=None, K=5, params=None, scaling=True, one_hot=True):
         '''
         perform the k-fold cross validation to train the xgboost model
 
@@ -412,6 +412,8 @@ class my_xgb():
             number of folds
         params: <dict>, defautl: None
             parameters for the xgboost model. If None, then use the inherent one.
+        scaling: <Boolean>, default: True
+            If True, requires the dataset is standardized.
         one_hot: <Boolean>, default: True
             If True, requires the dataset is one_hot_encoded. 
 
@@ -426,7 +428,7 @@ class my_xgb():
         import xgboost as xgb 
         from sklearn.model_selection import StratifiedKFold
         
-        if not self.scaling_flag:
+        if scaling and not self.scaling_flag:
             print('The inputs are not scaled, stop training.')
             return
         if one_hot and not self.one_hot_flag:
