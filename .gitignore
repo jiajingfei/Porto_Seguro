@@ -3,6 +3,7 @@
 ._*
 .Trashes
 Thumbs.db
+*/.cache/*
 /data/*
 */.ipynb_checkpoints/*
 *.csv
