@@ -81,11 +81,16 @@ class Training_data(object):
             self.__output_generated_data(train, test, output_directory)
 
     def kfold(self, n_splits, random_state):
-        results = []
-        sss = StratifiedKFold(n_splits, random_state=random_state)
-        for (train_ind, valid_ind) in sss.split(df, df.target):
-            results.append((df.iloc[train_ind], df.iloc[valid_idn]))
-        return results
+        df = self._train.copy()
+        if n_splits = None:
+            return [(df, None)]
+        else:
+            assert (n_splits > 1)
+            results = []
+            sss = StratifiedKFold(n_splits, random_state=random_state)
+            for (train_ind, valid_ind) in sss.split(df, df.target):
+                results.append((df.iloc[train_ind], df.iloc[valid_idn]))
+            return results
 
 
 class Prediction(object):

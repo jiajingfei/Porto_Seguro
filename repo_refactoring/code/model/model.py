@@ -13,10 +13,19 @@ from config.base_config import (
     data_test_file
 )
 
+'''
+This module is designed to generate deterministic results and keep tracking on the prediction's
+metrics.
+'''
 class Model():
 
     __metaclass__ = ABCMeta
 
+    '''
+    data_dir: the directory name of the data, data is not allowed to passed in by dataframe
+    param: a dictionary. It must contain 'features' and 'random_state' if in n_splits != None,
+    its other values may depend on the model
+    '''
     def __init__(self, data_dir, param):
         self._identifier = random_word(10)
         self._dir = data_dir
@@ -45,9 +54,8 @@ class Model():
     '''
     input data_dir should be a standard datadir
     '''
-    def kfold_train_predict_eval(self, n_splits, random_state):
+    def kfold_train_predict_eval(self, n_splits):
         data_dir = os.path.join(base_data_dir, data_sub_dir)
-        self._param['random_state'] = random_state
         training_data = Training_data(data_dir)
         testing_data = os.path.join(data_dir, test_file)
 
@@ -59,6 +67,7 @@ class Model():
             return features[relevant_cols]
 
         self._sum_pred = 0
+        random_state = self._param.get_value('random_state')
         for i, (df_train, df_valid) in enumerate(training_data.kfold(n_splits, random_state)):
             # Doing this once before split is more efficient, but this is easier
             df_train = get_relevant_df(df_train)
