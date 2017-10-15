@@ -1,5 +1,4 @@
 import os
-import sys
 import pandas as pd
 import datetime as dt
 import argparse
@@ -7,7 +6,6 @@ import getpass
 import numpy as np
 from sklearn.utils import shuffle
 from sklearn.model_selection import StratifiedShuffleSplit, StratifiedKFold
-sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
 from utils import gini_normalized, save_df_to_file, save_to_file
 import config
 

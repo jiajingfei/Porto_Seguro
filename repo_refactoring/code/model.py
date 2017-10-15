@@ -1,14 +1,12 @@
 import os
-import sys
 import cPickle as pickle
 import getpass
 import datetime as dt
 import pandas as pd
 from abc import ABCMeta, abstractmethod
-sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
 from data_type import Training_data as T
 from data_type import Prediction as P
-from feature.feature_extraction import FeatureExtractor as F
+from feature import FeatureExtractor as F
 from utils import random_word, save_to_file
 import config
 
