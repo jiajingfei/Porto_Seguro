@@ -10,7 +10,7 @@ from feature.feature_extractor import FeatureExtractor as F
 from utils import random_word
 from config.base_config import (
     data_train_file,
-    data_test_file,
+    data_test_file
 )
 
 class Model():
