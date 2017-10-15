@@ -42,12 +42,12 @@ def pred_filename(dir_name, filename, identifier):
     return os.path.join(get_pred_dir(dir_name), '{}-{}.csv'.format(identifier, filename))
 
 def pred_log_file(dir_name):
-    return os.path.join(get_pred_dir(dir_name), 'log.csv')
+    return os.path.join(get_pred_dir(dir_name), 'pred_log.csv')
 
 ##################################################################
 # Model param configs 
 ##################################################################
-__base_model_dir = os.path.join(this_path, '../model_param/')
+__base_model_dir = os.path.join(this_path, '../pred/')
 
 def get_model_dir(dir_name):
     return os.path.join(__base_model_dir, dir_name)
@@ -56,4 +56,4 @@ def model_filename(dir_name, filename, identifier):
     return os.path.join(get_model_dir(dir_name), '{}-{}.pickle'.format(identifier, filename))
 
 def model_log_file(dir_name):
-    return os.path.join(get_model_dir(dir_name), 'log.csv')
+    return os.path.join(get_model_dir(dir_name), 'model_log.csv')
