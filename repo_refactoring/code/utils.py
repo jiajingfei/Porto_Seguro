@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import random, string
 
 '''
 CR-soon jjia: consider generalize this function to more data types, for example, we can change the signature to
@@ -42,3 +43,13 @@ def gini_normalized(a, p):
         giniSum -= (len(actual) + 1) / 2.
         return giniSum / len(actual)
     return gini(a, p) / gini(a, a)
+
+# This is used to generated unique string
+def random_word(length):
+   return ''.join(random.choice(string.lowercase) for i in range(length)) 
+
+def test_gini_normalized():
+    a = np.random.normal(size = 100)
+    p = np.random.normal(size = 100)
+    assert(gini_normalized(a, p) < 1)
+    assert(np.isclose(gini_normalized(a, a), 1))
