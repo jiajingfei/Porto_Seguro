@@ -3,7 +3,6 @@ import numpy as np
 import random, string
 
 def save_to_file(filename, save_fn, allow_existing=False):
-    print filename
     if os.path.isfile(filename):
         if not allow_existing:
             raise Exception('{} already exists'.format(filename))
