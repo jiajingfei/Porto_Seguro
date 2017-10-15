@@ -9,3 +9,4 @@ Thumbs.db
 *.csv
 *.pyc
 *~
+/repo_refactoring/code/debug/*
