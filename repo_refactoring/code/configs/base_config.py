@@ -1,21 +1,51 @@
 import os
 this_path = os.path.dirname(os.path.realpath(__file__))
 
+##################################################################
+# DataFrame configs
+##################################################################
+id_col = 'id'
+label_col = 'target'
 
 ##################################################################
 # Data configs
 ##################################################################
-id_col = 'id'
-label_col = 'target'
-train_file = 'train.csv'
-test_file = 'test.csv'
-test_target_file = '.test_target.csv'
-base_data_dir = os.path.join(this_path, '../../data/')
-raw_data_dir = os.path.join(base_data_dir, 'raw_data')
-sanity_data_dir = os.path.join(base_data_dir, 'sanity_data')
+__data_base_dir = os.path.join(this_path, '../../data/')
 
+def get_data_dir(dir_name):
+    return os.path.join(__data_base_dir, dir_name)
+
+def data_train_file(dir_name):
+    return os.path.join(__data_base_dir, dir_name, 'train.csv')
+
+def data_test_file(dir_name):
+    return os.path.join(__data_base_dir, dir_name, 'test.csv')
+
+def data_test_target_file(dir_name):
+    return os.path.join(__data_base_dir, dir_name, '.test_target.csv')
+
+def data_readme(dir_name):
+    return os.path.join(__data_base_dir, dir_name, 'readme.txt')
+
+data_raw_dir = 'raw_data'
+data_sanity_dir = 'sanity_data'
 
 ##################################################################
-# Feature configs
+# prediction configs 
 ##################################################################
-base_feature_dir = os.path.join(this_path, '../../features/')
+__pred_base_dir = os.path.join(this_path, '../../pred/')
+
+def get_pred_dir(dir_name):
+    return os.path.join(__pred_base_dir, dir_name)
+
+def pred_filename(dir_name, filename, identifier):
+    return os.path.join(pred_dir(dir_name), '{}-{}.csv'.format(identifier, filename))
+
+def pred_log_file(dir_name):
+    return os.path.join(pred_dir(dir_name), 'log.csv')
+
+##################################################################
+# Model param configs 
+##################################################################
+base_model_dir = os.path.join(this_path, '../../models/')
+
