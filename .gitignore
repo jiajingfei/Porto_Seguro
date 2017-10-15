@@ -10,3 +10,4 @@ Thumbs.db
 *.pyc
 *~
 /repo_refactoring/code/debug/*
+*.pickle

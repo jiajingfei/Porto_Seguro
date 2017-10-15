@@ -2,8 +2,6 @@ import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
 import pandas as pd
-from configs.base_config import *
-from abc import ABCMeta, abstractmethod
 from utils import save_df_to_file
 
 class FeatureExtractor():
@@ -27,7 +25,7 @@ class FeatureExtractor():
             overwrite=False
     ):
         save_df_to_file(self._df, output_file, overwrite)
-            
+
 if __name__ == '__main__':
     extractor = FeatureExtractor('../../data/train.csv')
     extractor.do_nothing()

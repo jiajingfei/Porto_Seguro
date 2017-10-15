@@ -8,46 +8,30 @@ import numpy as np
 from sklearn.utils import shuffle
 from sklearn.model_selection import StratifiedShuffleSplit, StratifiedKFold
 sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
-from utils import gini_normalized, save_df_to_file
-import configs.base_config as config
-'''
-from configs.base_config import config
-    id_col,
-    label_col,
-    get_data_dir,
-    data_train_file,
-    data_test_file,
-    data_test_target_file,
-    data_readme,
-    data_raw_dir,
-    data_sanity_dir,
-    get_pred_dir,
-    pred_filename,
-    pred_log_file
-)
-'''
+from utils import gini_normalized, save_df_to_file, save_to_file
+import config
 
 class Training_data(object):
-    def __init__(self, dir_or_df):
-        if os.path.isdir(config.get_data_dir(dir_or_df)):
-            self._train = pd.read_csv(config.data_train_file(dir_or_df))
-        else:
-            self._train = dir_or_df.copy()
-        return None
+    def __init__(self, data_dir):
+        self._train = pd.read_csv(config.data_train_file(data_dir))
 
     def __output_generated_data(self, train, test, output_directory):
         if not os.path.exists(config.get_data_dir(output_directory)):
             os.system('mkdir -p {}'.format(config.get_data_dir(output_directory)))
         test_target = test[[config.id_col, config.label_col]]
         del test[config.label_col]
-        train.to_csv(config.data_train_file(output_directory), index=False)
-        test.to_csv(config.data_test_file(output_directory), index=False)
+        train_file = config.data_train_file(output_directory)
+        test_file = config.data_test_file(output_directory)
+        train.to_csv(train_file, index=False)
+        test.to_csv(test_file, index=False)
+        train[config.id_col].to_csv(train_file+'.id', index=False)
+        test[config.id_col].to_csv(test_file+'.id', index=False)
         test_target.to_csv(config.data_test_target_file(output_directory), index=False)
-        with open(config.data_readme(output_directory), 'w') as f:
+        with open(config.data_readme_file(output_directory), 'w') as f:
             readme_lines = [
                 'this directory is for generated training data and validation data\n',
                 'it should contain a train file with labels and a test file without labels\n',
-                'and it may contains a hidden file which is the labels for the test file'
+                'and it may contains a hidden file which is the label for the test file\n'
             ]
             f.writelines(readme_lines)
 
@@ -116,25 +100,36 @@ class Prediction(object):
             return gini_normalized(test_target[config.label_col], self._df[config.label_col])
 
     def eval_output_and_register(self, filename):
+
         gini = self.eval()
-        pred_dir = config.get_pred_dir(self._dir)
-        log_file = config.pred_log_file(self._dir)
-        filename = config.pred_filename(self._dir, filename, self._identifier)
-        if not os.path.exists(log_file):
-            os.system('mkdir -p {}'.format(pred_dir))
-            f = open(log_file, 'w')
-            f.write('data_dir,gini,user,time,identifier\n')
-        else:
-            f = open(log_file, 'ab')
-        new_line = '{},{},{},{},{}'.format(
-            self._dir,
-            gini,
-            getpass.getuser(),
-            dt.datetime.now(),
-            self._identifier
+
+        def write_log(log_file):
+            if os.path.isfile(log_file):
+                f = open(log_file, 'ab')
+            else:
+                f = open(log_file, 'w')
+                f.write('data_dir,gini,user,time,identifier\n')
+            new_line = '{},{},{},{},{}'.format(
+                self._dir,
+                gini,
+                getpass.getuser(),
+                dt.datetime.now(),
+                self._identifier
+            )
+            f.write(new_line)
+            f.close()
+
+        save_to_file(
+            config.pred_log_file(self._dir),
+            save_fn=write_log,
+            allow_existing=True
         )
-        f.write(new_line)
-        save_df_to_file(self._df, filename, overwrite=False)
+
+        save_df_to_file(
+            self._df,
+            config.pred_filename(self._dir, filename, self._identifier),
+            overwrite=False
+        )
 
 def test_predcition():
     if not os.path.exists(config.get_data_dir(config.data_sanity_dir)):
