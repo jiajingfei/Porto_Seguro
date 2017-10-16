@@ -41,9 +41,12 @@ class Model():
     '''
 
     @abstractmethod
+    # df_train and df_valid should be processed dataframes that only contain features
+    # id col, and label col
     def _train(self, df_train, df_valid):
         raise Exception('Unimplemented in abstract class')
 
+    # CR jjia: fix this, it should take a feature dataframe
     @abstractmethod
     def _pred(self):
         raise Exception('Unimplemented in abstract class')
@@ -53,8 +56,10 @@ class Model():
     '''
     def kfold_train_predict_eval(self, n_splits):
         training_data = T(self._dir)
-        testing_data = config.data_test_file(self._dir)
 
+        # CR jjia: change the signature of this to
+        # get_relevant_df(df_train, df_valid, df_test)
+        # also keep in mind, df_valid could be None
         def get_relevant_df(df):
             features = F(df).peek_df()
             relevant_cols = [config.id_col] + self._param['features']
