@@ -97,7 +97,7 @@ class Prediction(object):
         else:
             return gini_normalized(test_target[config.label_col], self._df[config.label_col])
 
-    def eval_output_and_register(self, filename):
+    def eval_output_and_register(self, filename, time):
 
         gini = self.eval()
 
@@ -107,11 +107,11 @@ class Prediction(object):
             else:
                 f = open(log_file, 'w')
                 f.write('data_dir,gini,user,time,identifier\n')
-            new_line = '{},{},{},{},{}'.format(
+            new_line = '{},{},{},{},{}\n'.format(
                 self._dir,
                 gini,
                 getpass.getuser(),
-                dt.datetime.now(),
+                time,
                 self._identifier
             )
             f.write(new_line)
