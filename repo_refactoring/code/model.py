@@ -1,5 +1,4 @@
 import os
-import cPickle as pickle
 import getpass
 import datetime as dt
 import pandas as pd
@@ -9,6 +8,12 @@ from data_type import Prediction as P
 from feature import FeatureExtractor as F
 from utils import random_word, save_to_file
 import config
+
+try:  # for python 2.x
+    import cPickle as pickle
+except:  # for python 3.x
+    import pickle
+
 
 '''
 This module is designed to generate deterministic results and keep tracking on the prediction's
@@ -53,6 +58,20 @@ class Model():
     input data_dir should be a standard datadir
     '''
     def kfold_train_predict_eval(self, n_splits):
+        '''
+        Main worker function. 
+        Here we will do the k-fold CV on the training data
+        and save the results and the parameters to respective log files
+        
+        Input
+        ---------
+        n_splits: <int>
+            number of folds
+            
+        Return
+        ---------
+        Nothing, save / modify 2 log files.
+        '''
         training_data = T(self._dir)
         self._sum_pred = 0
         if n_splits is None:
@@ -114,11 +133,30 @@ class Model():
 
 class Toy_model(Model):
     def _train(self, df_train, df_valid):
+        # train a simple random forest (RF)
+        # unlike xgboost, 
+        # for RF, we don't need a validation set for training
+        from sklearn.ensemble import RandomForestClassifier
+        # prepare the data
+        y = df_train['target']
+        df_train.drop('target', axis=1, inplace=True)
+        X = df_train
+        # prepare the model
+        model_param = {}
+        for key in self._param:
+            if key not in ['features', 'random_state']:
+                model_param[key] = self._param[key]
+        self.clf = RandomForestClassifier(**model_param)
+        # fit!
+        self.clf.fit(X, y)
+        
         return None
 
     def _pred(self, df_test):
         ids = df_test[config.id_col]
+        y_proba = self.clf.predict_proba(df_test)
+        
         return pd.DataFrame(data={
             config.id_col: ids,
-            config.label_col: ids%5
+            config.label_col: y_proba
         })
