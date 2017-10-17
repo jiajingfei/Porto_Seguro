@@ -184,3 +184,15 @@ class FeatureExtractor():
             'reordered_reverted_one_hot_ps_ind_06_09_cat',
             'reordered_reverted_one_hot_ps_ind_16_18_cat' 
         ]
+
+def test_features():
+    from data_type import Training_data as Training_data
+    if not os.path.exists(config.get_data_dir(config.data_sanity_dir)):
+        training_data = Training_data(config.data_raw_dir)
+        training_data.output_small_data_for_sanity_check(config.data_sanity_dir)
+    F = FeatureExtractor
+    f = F()
+    df_train = pd.read_csv(config.data_train_file(config.data_sanity_dir))
+    features_train = f._convert(df_train)
+    assert (set(features_train.columns[2:]) == set(F.all_features()))
+    assert (set(F.recommended_features()) < set(F.all_features()))
