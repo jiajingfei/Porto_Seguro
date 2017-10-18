@@ -104,7 +104,7 @@ class Prediction(object):
 
         def write_log(log_file):
             if os.path.isfile(log_file):
-                f = open(log_file, 'ab')
+                f = open(log_file, 'a')
             else:
                 f = open(log_file, 'w')
                 f.write('data_dir,gini,user,time,identifier\n')
