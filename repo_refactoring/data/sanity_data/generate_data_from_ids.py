@@ -5,7 +5,11 @@ Created on Mon Oct 16 21:43:47 2017
 
 @author: changyaochen
 """
-
+import pandas as pd
+import sys
+# get config files
+sys.path.append('../../code')
+import config
 
 def generate_data(id_filename, save_filename, 
                   keep_label=True):
@@ -26,12 +30,6 @@ def generate_data(id_filename, save_filename,
     Nothing, but create file(s) under the same folder.
     If the file(s) already exist(s), we will overwrite
     '''
-    
-    import pandas as pd
-    import sys
-    # get config files
-    sys.path.append('../../code')
-    import config
     
     # get indices
     with open(id_filename, 'r') as f:

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import pandas as pd
 import datetime as dt
@@ -39,7 +40,7 @@ class Training_data(object):
             os.system('mkdir -p {}'.format(data_dir))
         if os.path.exists(data_dir):
             data_dir = os.path.abspath(data_dir)
-            print ('WARNING: {} already exists, will overwrite it'.format(data_dir))
+            print('WARNING: {} already exists, will overwrite it'.format(data_dir))
 
         df = shuffle(self._train)
         train = df[:nrows].copy()
@@ -138,6 +139,60 @@ def test_predcition():
     normalized_gini = prediction.eval()
     assert (np.isclose(normalized_gini, 1))
 
+def generate_data_from_ids(data_folder='2017-10-15'):
+    '''
+    This code is to read the data, from the id
+    
+    Input
+    ---------
+    data_type: <str>, default: '2017-10-15'
+        what kind of data we try to generate, 
+        in {'sanity_data', '2017-10-15', ...}
+    
+    Return
+    ---------
+    Nothing, but create 3 files under the same folder.
+    If the files already exist, we will overwrite
+    '''
+    
+    # get indices
+    if data_folder == 'raw_data':
+        print('We do not want to modify the raw data. Will exit.')
+        return
+        
+    ids_train_file = config.data_train_file(data_folder) + '.id'
+    ids_test_file = config.data_test_file(data_folder) + '.id'
+    # update the data_folder
+    data_folder = config.get_data_dir(data_folder)
+    
+    try:
+        with open(ids_train_file, 'r') as f:
+            train_ids = f.readlines()
+        train_ids = list(map(int, train_ids))
+        with open(ids_test_file, 'r') as f:
+            test_ids = f.readlines()
+        test_ids = list(map(int, test_ids))
+    except:  # no such folder
+        print('The folder {} does not exist.'.format(data_folder))
+        return
+    
+    # get the full, raw data
+    raw_data_file = config.data_train_file(config.data_raw_dir)
+    raw_df = pd.read_csv(raw_data_file)
+    
+    train_df = raw_df[raw_df[config.id_col].isin(train_ids)]
+    test_df = raw_df[raw_df[config.id_col].isin(test_ids)]
+    # create the target file
+    target_df = test_df[[config.id_col, config.label_col]]
+    del test_df[config.label_col]
+    
+    # save files
+    train_df.to_csv(os.path.join(data_folder, 'train.csv'), index=False)
+    test_df.to_csv(os.path.join(data_folder, 'test.csv'), index=False)
+    target_df.to_csv(os.path.join(data_folder, '.test_target.csv'), index=False)
+    
+    return 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='split training data into training and validation dataset')
     parser.add_argument(
@@ -156,3 +211,6 @@ if __name__ == '__main__':
         training_data.output_split()
     else:
         raise Exception('unknown mode {}'.format(args.mode))
+    
+    # create the 'real' data 
+    generate_data_from_ids(data_folder='sanity_data')

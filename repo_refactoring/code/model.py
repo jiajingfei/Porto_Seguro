@@ -130,31 +130,41 @@ class Model():
             save_fn=lambda filename: self._save_param(filename),
             allow_existing=False
         )
-
 class Toy_model(Model):
+    def _train(self, df_train, df_valid):
+        return None
+
+    def _pred(self, df_test):
+        ids = df_test[config.id_col]
+        return pd.DataFrame(data={
+            config.id_col: ids,
+            config.label_col: ids%5
+        })
+    
+class RandomForest(Model):
+    
     def _train(self, df_train, df_valid):
         # train a simple random forest (RF)
         # unlike xgboost, 
-        # for RF, we don't need a validation set for training
-        from sklearn.ensemble import RandomForestClassifier
+        # for RF, we don't need a validation set for training        
         # prepare the data
+        from sklearn.ensemble import RandomForestClassifier
         y = df_train['target']
         df_train.drop('target', axis=1, inplace=True)
         X = df_train
         # prepare the model
         model_param = {}
-        for key in self._param:
-            if key not in ['features', 'random_state']:
-                model_param[key] = self._param[key]
-        self.clf = RandomForestClassifier(**model_param)
+        { k : v for (k, v) in self._param.item() 
+          if k not in ['features', 'random_state'] }
+        self.__clf = RandomForestClassifier(**model_param)
         # fit!
-        self.clf.fit(X, y)
+        self.__clf.fit(X, y)
         
         return None
 
     def _pred(self, df_test):
         ids = df_test[config.id_col]
-        y_proba = self.clf.predict_proba(df_test)
+        y_proba = self.__clf.predict_proba(df_test)
         
         return pd.DataFrame(data={
             config.id_col: ids,
