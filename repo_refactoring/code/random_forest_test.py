@@ -24,4 +24,4 @@ for x in to_remove:
 
 param = {'features':feature, 'random_state':42}
 single_model = model.RandomForest(data_dir=data_dir, param=param)
-single_model.kfold_train_predict_eval(5)
+single_model.kfold_train_predict_eval(None)

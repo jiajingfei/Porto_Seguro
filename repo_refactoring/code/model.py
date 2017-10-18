@@ -106,7 +106,7 @@ class Model():
 
         def write_log(log_file):
             if os.path.isfile(log_file):
-                f = open(log_file, 'ab')
+                f = open(log_file, 'a')
             else:
                 f = open(log_file, 'w')
                 f.write('data_dir,user,time,identifier,model_name\n')
@@ -156,7 +156,7 @@ class RandomForest(Model):
         X = df_train
         # prepare the model
         model_param = { 
-            k : v for (k, v) in self._param.item()
+            k : v for (k, v) in self._param.items()
             if k not in ['features', 'random_state'] 
         }
         self.__clf = RandomForestClassifier(**model_param)
@@ -166,7 +166,7 @@ class RandomForest(Model):
 
     def _pred(self, df_test):
         ids = df_test[config.id_col]
-        y_proba = self.__clf.predict_proba(df_test)
+        y_proba = self.__clf.predict_proba(df_test)[:,1]  # the proba of being 1
         return pd.DataFrame(data={
             config.id_col: ids,
             config.label_col: y_proba
