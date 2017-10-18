@@ -7,6 +7,7 @@ from data_type import Training_data as T
 from data_type import Prediction as P
 from feature import FeatureExtractor as F
 from utils import random_word, save_to_file
+from sklearn.ensemble import RandomForestClassifier
 import config
 
 try:  # for python 2.x
@@ -46,10 +47,10 @@ class Model():
     '''
 
     @abstractmethod
+    # Train, this function may modify the inputs
     def _train(self, features_train, features_valid):
         raise Exception('Unimplemented in abstract class')
 
-    # df_test should be the feature dataframe, not the original dataframe
     @abstractmethod
     def _pred(self, features_test):
         raise Exception('Unimplemented in abstract class')
@@ -130,7 +131,9 @@ class Model():
             save_fn=lambda filename: self._save_param(filename),
             allow_existing=False
         )
+        
 class Toy_model(Model):
+    
     def _train(self, df_train, df_valid):
         return None
 
@@ -146,27 +149,32 @@ class RandomForest(Model):
     def _train(self, df_train, df_valid):
         # train a simple random forest (RF)
         # unlike xgboost, 
-        # for RF, we don't need a validation set for training        
+        # for RF, we don't need a validation set for training
         # prepare the data
-        from sklearn.ensemble import RandomForestClassifier
-        y = df_train['target']
-        df_train.drop('target', axis=1, inplace=True)
+        y = df_train[config.label_col]
+        del df_train[config.label_col]
         X = df_train
         # prepare the model
-        model_param = {}
-        { k : v for (k, v) in self._param.item() 
-          if k not in ['features', 'random_state'] }
+        model_param = { 
+            k : v for (k, v) in self._param.item()
+            if k not in ['features', 'random_state'] 
+        }
         self.__clf = RandomForestClassifier(**model_param)
         # fit!
         self.__clf.fit(X, y)
-        
         return None
 
     def _pred(self, df_test):
         ids = df_test[config.id_col]
         y_proba = self.__clf.predict_proba(df_test)
-        
         return pd.DataFrame(data={
             config.id_col: ids,
             config.label_col: y_proba
         })
+
+    def kfold_train_predict_eval(self, n_splits):
+        if n_splits is not None:
+            raise Exception(
+                'No cross-validation has been implemented in {}, n_splits must be None'.format(self.__class__.__name__)
+            )
+        super(RandomForest, self).kfold_train_predict_eval(n_splits)
