@@ -27,7 +27,8 @@ def gini_normalized(a, p):
 
 # This is used to generated unique string
 def random_word(length):
-   return ''.join(random.choice(string.lowercase) for i in range(length)) 
+    # call ascii_lowercase in order to work with python 3.x
+    return ''.join(random.choice(string.ascii_lowercase) for i in range(length)) 
 
 def test_gini_normalized():
     a = np.random.normal(size = 100)

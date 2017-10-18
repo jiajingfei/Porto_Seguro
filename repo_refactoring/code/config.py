@@ -47,7 +47,7 @@ def pred_log_file(dir_name):
 ##################################################################
 # Model param configs 
 ##################################################################
-__base_model_dir = os.path.join(this_path, '../pred/')
+__base_model_dir = os.path.join(this_path, '../model/')
 
 def get_model_dir(dir_name):
     return os.path.join(__base_model_dir, dir_name)
