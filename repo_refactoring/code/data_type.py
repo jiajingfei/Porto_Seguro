@@ -70,9 +70,9 @@ class Training_data(object):
             test = df.iloc[indices[1]]
             self.__output_generated_data(train, test, output_data_dir)
 
-    def complete_data_dir_with_ids(data_dir):
+    def complete_data_dir_with_ids(self, data_dir):
         '''
-        This code is to read the data, from the id
+        This code is to complete the data, from the id
 
         Input
         ---------
@@ -88,11 +88,10 @@ class Training_data(object):
 
         # get indices
         if data_dir == 'raw_data':
-            raise Exception('We do not want to modify the raw data. Will exit.')
+            raise Exception('Should never complete the raw data')
 
         ids_train_file = config.data_train_file(data_dir) + '.id'
         ids_test_file = config.data_test_file(data_dir) + '.id'
-        # update the data_dir
         if not os.path.exists(config.get_data_dir(data_dir)):
             raise Exception('The data dir {} does not exist.'.format(data_dir))
 
@@ -127,7 +126,7 @@ class Prediction(object):
         self._identifier = identifier
         self._df = df.sort_values(config.id_col).reset_index(drop=True)
 
-    def eval(self):
+    def _eval(self):
         filename = config.data_test_target_file(self._dir)
         if not os.path.isfile(filename):
             return None
@@ -139,37 +138,14 @@ class Prediction(object):
         else:
             return gini_normalized(test_target[config.label_col], self._df[config.label_col])
 
-    def eval_output_and_register(self, filename, time):
-
-        gini = self.eval()
-
-        def write_log(log_file):
-            if os.path.isfile(log_file):
-                f = open(log_file, 'a')
-            else:
-                f = open(log_file, 'w')
-                f.write('data_dir,gini,user,time,identifier\n')
-            new_line = '{},{},{},{},{}\n'.format(
-                self._dir,
-                gini,
-                getpass.getuser(),
-                time,
-                self._identifier
-            )
-            f.write(new_line)
-            f.close()
-
-        save_to_file(
-            config.pred_log_file(self._dir),
-            save_fn=write_log,
-            allow_existing=True
-        )
-
+    def eval_and_save(self, filename_key):
+        gini = self._eval()
         save_df_to_file(
             self._df,
-            config.pred_filename(self._dir, filename, self._identifier),
+            config.pred_filename(self._dir, filename_key, self._identifier),
             overwrite=False
         )
+        return self._eval()
 
 def test_predcition():
     if not os.path.exists(config.get_data_dir(config.data_sanity_dir)):
@@ -177,7 +153,7 @@ def test_predcition():
         training_data.output_small_data_for_sanity_check(config.data_sanity_dir)
     df = pd.read_csv(config.data_test_target_file(config.data_sanity_dir))
     prediction = Prediction(df, config.data_sanity_dir, identifier="sanity_check")
-    normalized_gini = prediction.eval()
+    normalized_gini = prediction._eval()
     assert (np.isclose(normalized_gini, 1))
 
 if __name__ == '__main__':

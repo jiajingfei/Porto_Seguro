@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import random, string
+import datetime as dt
 
 def save_to_file(filename, save_fn, allow_existing=False):
     if os.path.isfile(filename):
@@ -25,10 +26,8 @@ def gini_normalized(a, p):
         return giniSum / len(actual)
     return gini(a, p) / gini(a, a)
 
-# This is used to generated unique string
-def random_word(length):
-    # call ascii_lowercase in order to work with python 3.x
-    return ''.join(random.choice(string.ascii_lowercase) for i in range(length)) 
+def unique_identifier():
+    return str(int((dt.datetime.now()-dt.datetime(2017,10,17)).total_seconds()))
 
 def test_gini_normalized():
     a = np.random.normal(size = 100)
