@@ -14,19 +14,23 @@ class Training_data(object):
     def __init__(self, data_dir):
         self._train = pd.read_csv(config.data_train_file(data_dir))
 
-    def __output_generated_data(self, train, test, output_directory):
-        if not os.path.exists(config.get_data_dir(output_directory)):
-            os.system('mkdir -p {}'.format(config.get_data_dir(output_directory)))
+    def __output_generated_data(self, train, test, output_data_dir):
+        if not os.path.exists(config.get_data_dir(output_data_dir)):
+            os.system('mkdir -p {}'.format(config.get_data_dir(output_data_dir)))
         test_target = test[[config.id_col, config.label_col]]
         del test[config.label_col]
-        train_file = config.data_train_file(output_directory)
-        test_file = config.data_test_file(output_directory)
+        train_file = config.data_train_file(output_data_dir)
+        test_file = config.data_test_file(output_data_dir)
+        if os.path.exists(train_file):
+            raise Exception('{} already exists'.format(train_file))
+        if os.path.exists(test_file):
+            raise Exception('{} already exists'.format(test_file))
         train.to_csv(train_file, index=False)
         test.to_csv(test_file, index=False)
         train[config.id_col].to_csv(train_file+'.id', index=False)
         test[config.id_col].to_csv(test_file+'.id', index=False)
-        test_target.to_csv(config.data_test_target_file(output_directory), index=False)
-        with open(config.data_readme_file(output_directory), 'w') as f:
+        test_target.to_csv(config.data_test_target_file(output_data_dir), index=False)
+        with open(config.data_readme_file(output_data_dir), 'w') as f:
             readme_lines = [
                 'this directory is for generated training data and validation data\n',
                 'it should contain a train file with labels and a test file without labels\n',
@@ -48,12 +52,12 @@ class Training_data(object):
         test_target = test[[config.label_col]]
         self.__output_generated_data(train, test, config.data_sanity_dir)
 
-    # Default output_directory is base_data_dir + today's date
-    def output_split(self, validation_proportion=0.3, output_directory=None):
-        if output_directory is None:
-            output_directory = '{}'.format(dt.date.today ())
+    # Default output_data_dir is base_data_dir + today's date
+    def output_split(self, validation_proportion=0.3, output_data_dir=None):
+        if output_data_dir is None:
+            output_data_dir = '{}'.format(dt.date.today ())
 
-        data_dir = config.get_data_dir(output_directory)
+        data_dir = config.get_data_dir(output_data_dir)
         if os.path.exists(data_dir):
             data_dir = os.path.abspath(data_dir)
             raise Exception('{} already exists'.format(data_dir))
@@ -64,7 +68,43 @@ class Training_data(object):
             indices = sss.split(X=df, y=df.target).next()
             train = df.iloc[indices[0]]
             test = df.iloc[indices[1]]
-            self.__output_generated_data(train, test, output_directory)
+            self.__output_generated_data(train, test, output_data_dir)
+
+    def complete_data_dir_with_ids(self, data_dir):
+        '''
+        This code is to complete the data, from the id
+
+        Input
+        ---------
+        data_type: <str>, 
+            what kind of data we try to generate, 
+            in {'sanity_data', '2017-10-15', ...}
+
+        Return
+        ---------
+        Nothing, but create 3 files under the same folder.
+        If the files already exist, we will overwrite
+        '''
+
+        # get indices
+        if data_dir == 'raw_data':
+            raise Exception('Should never complete the raw data')
+
+        ids_train_file = config.data_train_file(data_dir) + '.id'
+        ids_test_file = config.data_test_file(data_dir) + '.id'
+        if not os.path.exists(config.get_data_dir(data_dir)):
+            raise Exception('The data dir {} does not exist.'.format(data_dir))
+
+        def load_ids(filename):
+            with open(filename, 'r') as f:
+                return list(map(int, f.readlines()))
+
+        train_ids = load_ids(ids_train_file)
+        test_ids = load_ids(ids_test_file)
+
+        train = self._train[self._train[config.id_col].isin(train_ids)]
+        test = self._train[self._train[config.id_col].isin(test_ids)]
+        self.__output_generated_data(train, test, output_data_dir=data_dir)
 
     def kfold(self, n_splits, random_state):
         df = self._train.copy()
@@ -86,7 +126,7 @@ class Prediction(object):
         self._identifier = identifier
         self._df = df.sort_values(config.id_col).reset_index(drop=True)
 
-    def eval(self):
+    def _eval(self):
         filename = config.data_test_target_file(self._dir)
         if not os.path.isfile(filename):
             return None
@@ -98,37 +138,14 @@ class Prediction(object):
         else:
             return gini_normalized(test_target[config.label_col], self._df[config.label_col])
 
-    def eval_output_and_register(self, filename, time):
-
-        gini = self.eval()
-
-        def write_log(log_file):
-            if os.path.isfile(log_file):
-                f = open(log_file, 'a')
-            else:
-                f = open(log_file, 'w')
-                f.write('data_dir,gini,user,time,identifier\n')
-            new_line = '{},{},{},{},{}\n'.format(
-                self._dir,
-                gini,
-                getpass.getuser(),
-                time,
-                self._identifier
-            )
-            f.write(new_line)
-            f.close()
-
-        save_to_file(
-            config.pred_log_file(self._dir),
-            save_fn=write_log,
-            allow_existing=True
-        )
-
+    def eval_and_save(self, filename_key):
+        gini = self._eval()
         save_df_to_file(
             self._df,
-            config.pred_filename(self._dir, filename, self._identifier),
+            config.pred_filename(self._dir, filename_key, self._identifier),
             overwrite=False
         )
+        return self._eval()
 
 def test_predcition():
     if not os.path.exists(config.get_data_dir(config.data_sanity_dir)):
@@ -136,62 +153,8 @@ def test_predcition():
         training_data.output_small_data_for_sanity_check(config.data_sanity_dir)
     df = pd.read_csv(config.data_test_target_file(config.data_sanity_dir))
     prediction = Prediction(df, config.data_sanity_dir, identifier="sanity_check")
-    normalized_gini = prediction.eval()
+    normalized_gini = prediction._eval()
     assert (np.isclose(normalized_gini, 1))
-
-def generate_data_from_ids(data_folder='2017-10-15'):
-    '''
-    This code is to read the data, from the id
-    
-    Input
-    ---------
-    data_type: <str>, default: '2017-10-15'
-        what kind of data we try to generate, 
-        in {'sanity_data', '2017-10-15', ...}
-    
-    Return
-    ---------
-    Nothing, but create 3 files under the same folder.
-    If the files already exist, we will overwrite
-    '''
-    
-    # get indices
-    if data_folder == 'raw_data':
-        print('We do not want to modify the raw data. Will exit.')
-        return
-        
-    ids_train_file = config.data_train_file(data_folder) + '.id'
-    ids_test_file = config.data_test_file(data_folder) + '.id'
-    # update the data_folder
-    data_folder = config.get_data_dir(data_folder)
-    
-    try:
-        with open(ids_train_file, 'r') as f:
-            train_ids = f.readlines()
-        train_ids = list(map(int, train_ids))
-        with open(ids_test_file, 'r') as f:
-            test_ids = f.readlines()
-        test_ids = list(map(int, test_ids))
-    except:  # no such folder
-        print('The folder {} does not exist.'.format(data_folder))
-        return
-    
-    # get the full, raw data
-    raw_data_file = config.data_train_file(config.data_raw_dir)
-    raw_df = pd.read_csv(raw_data_file)
-    
-    train_df = raw_df[raw_df[config.id_col].isin(train_ids)]
-    test_df = raw_df[raw_df[config.id_col].isin(test_ids)]
-    # create the target file
-    target_df = test_df[[config.id_col, config.label_col]]
-    del test_df[config.label_col]
-    
-    # save files
-    train_df.to_csv(os.path.join(data_folder, 'train.csv'), index=False)
-    test_df.to_csv(os.path.join(data_folder, 'test.csv'), index=False)
-    target_df.to_csv(os.path.join(data_folder, '.test_target.csv'), index=False)
-    
-    return 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='split training data into training and validation dataset')
@@ -201,16 +164,24 @@ if __name__ == '__main__':
         dest='mode',
         required=True,
         type=str,
-        help=' mode (sanity|split)'
+        help='mode (sanity|split|complete)'
+    )
+    parser.add_argument(
+        '--data-dir',
+        '-d',
+        dest='data_dir',
+        required=False,
+        type=str,
+        help='data dir, must be none if mode = sanity'
     )
     args = parser.parse_args()
     training_data = Training_data(config.data_raw_dir)
     if args.mode == 'sanity':
+        assert (args.data_dir is None)
         training_data.output_small_data_for_sanity_check()
     elif args.mode == 'split':
-        training_data.output_split()
+        training_data.output_split(output_data_dir=args.data_dir)
+    elif args.mode == 'complete':
+        training_data.complete_data_dir_with_ids(args.data_dir)
     else:
         raise Exception('unknown mode {}'.format(args.mode))
-    
-    # create the 'real' data 
-    generate_data_from_ids(data_folder='sanity_data')
