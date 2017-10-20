@@ -171,9 +171,6 @@ class Model():
         p = P(sum_pred, self._dir, self._identifier)
         test_gini = p.eval_and_save(fold)
         # save the result log
-        print(self._dir)
-        print(config.model_log_file(self._dir))
-        print('model log file path: ', config.model_log_file(self._dir))
         save_to_file(
             filename=config.model_log_file(self._dir),
             save_fn=to_save_fn(None, None, test_gini, fold),
