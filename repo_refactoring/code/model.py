@@ -226,8 +226,10 @@ class RandomForest(Model):
 
 
 class XGBboost_CV(Model):
-    def example_param(self):
+    @staticmethod
+    def example_param():
         return {
+            # Trainer related params
             'eta': 0.02,
             'max_depth': 6,
             'subsample': 0.8,
@@ -236,34 +238,38 @@ class XGBboost_CV(Model):
             'eval_metric': 'auc',
             'seed': 123,
             'silent': True,
-            # Above is gradient boosting parameters, below is general parameters
+            # Control params
+            'num_boost_round': 5000,
+            # General parameters
             'n_splits': 5,
             'random_state': 456,
             'features': F.recommended_features()
         }
 
     def _train(self, df_features_train, df_features_valid):
+        print df_features_train.shape
+        print df_features_valid.shape
         assert (self._param['n_splits'] > 1)
         def gini_xgb(preds, dtrain):
             labels = dtrain.get_label()
             gini_score = gini_normalized(labels, preds)
             return [('gini', gini_score)]
-        train_X = self._remove_id_and_label(df_features_train).values
-        valid_X = self._remove_id_and_label(df_features_train).values
-        train_y = df_features_train[config.label_col].values
-        valid_y = df_features_valid[config.label_col].values
+        train_X = self._remove_id_and_label(df_features_train)#.values
+        valid_X = self._remove_id_and_label(df_features_valid)#.values
+        train_y = df_features_train[config.label_col]#.values
+        valid_y = df_features_valid[config.label_col]#.values
         d_train = xgb.DMatrix(train_X, train_y)
         d_valid = xgb.DMatrix(valid_X, valid_y)
-        watchlist = [(d_train, 'train'), (d_valid, 'valid')]
         self._model = xgb.train(
             self._param,
             d_train,
-            num_boost_round = self._param.get('num_boost_num'),
-            watchlist,
+            num_boost_round = self._param.get('num_boost_round'),
+            evals=[(d_train, 'train'), (d_valid, 'valid')],
             feval=gini_xgb,
             maximize=True,
             verbose_eval=50,
-            early_stopping_rounds=100)
+            early_stopping_rounds=100
+        )
 
     def _pred(self, df_features):
         ids = df_features[config.id_col]
