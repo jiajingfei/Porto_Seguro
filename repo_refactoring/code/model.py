@@ -225,7 +225,7 @@ class RandomForest(Model):
         })
 
 
-class XGBboost_CV(Model):
+class XGBoost_CV(Model):
     @staticmethod
     def example_param():
         return {
