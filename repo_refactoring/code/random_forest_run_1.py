@@ -29,6 +29,6 @@ for x in feature:
 for x in to_remove:
     feature.remove(x)
 
-param = {'features':feature, 'random_state':42, 'verbose':1, 'n_splits': None}
+param = {'features':feature, 'random_state':42, 'verbose':1, 'n_splits': 3}
 single_model = model.RandomForest(data_dir=data_dir, param=param)
 single_model.train_predict_eval_and_log()
