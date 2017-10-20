@@ -76,7 +76,7 @@ class Training_data(object):
 
         Input
         ---------
-        data_type: <str>, 
+        data_dir: <str>, 
             what kind of data we try to generate, 
             in {'sanity_data', '2017-10-15', ...}
 

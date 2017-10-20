@@ -69,10 +69,11 @@ class Model():
         Here we will do the k-fold CV on the training data
         and save the results and the parameters to respective log files
 
+        The number of folds, n_splits, should be defined in self._params
+
         Input
         ---------
-        n_splits: <int>
-            number of folds
+        Nothing
 
         Return
         ---------
@@ -132,6 +133,7 @@ class Model():
         training_data = T(self._dir)
         self._sum_pred = 0
 
+        # k fold CV
         for i, (df_train, df_valid) in enumerate(training_data.kfold(n_splits, random_state)):
             # Doing this once before split is more efficient, but this is easier
             f = F()
@@ -148,6 +150,7 @@ class Model():
             p = P(pred, self._dir, self._identifier)
             test_gini = p.eval_and_save(fold)
             self._sum_pred += pred[config.label_col]
+            
             if n_splits is not None:
                 train_gini = get_gini(df_features_train)
                 valid_gini = get_gini(df_features_valid)
@@ -167,6 +170,10 @@ class Model():
             fold = 'sum'
         p = P(sum_pred, self._dir, self._identifier)
         test_gini = p.eval_and_save(fold)
+        # save the result log
+        print(self._dir)
+        print(config.model_log_file(self._dir))
+        print('model log file path: ', config.model_log_file(self._dir))
         save_to_file(
             filename=config.model_log_file(self._dir),
             save_fn=to_save_fn(None, None, test_gini, fold),
@@ -207,7 +214,7 @@ class RandomForest(Model):
         # prepare the model
         model_param = {
             k : v for (k, v) in self._param.items()
-            if k not in ['features', 'random_state']
+            if k not in ['features', 'random_state', 'n_splits']
         }
         self.__clf = RandomForestClassifier(**model_param)
         # fit!
