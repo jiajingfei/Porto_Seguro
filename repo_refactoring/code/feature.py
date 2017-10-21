@@ -10,6 +10,10 @@ class FeatureExtractor():
             if c.startswith('ps_calc'):
                 del df[c]
 
+    def __hand_design(self):
+        df = self._df
+        df.loc[:, 'ps_car_13_x_ps_reg_03'] = df['ps_car_13'] * df['ps_reg_03']
+
     def __revert_one_hot(self, features, new_feature):
         df = self._df
         new_f = 'reverted_one_hot_{}_cat'.format(new_feature)
@@ -45,6 +49,7 @@ class FeatureExtractor():
     def _convert(self, df):
         self._df = df.copy()
         self.__dropping_calc_features()
+        self.__hand_design()
         self.__revert_one_hot(
             ['ps_ind_06_bin', 'ps_ind_07_bin', 'ps_ind_08_bin', 'ps_ind_09_bin'],
             'ps_ind_06_09'
@@ -115,6 +120,7 @@ class FeatureExtractor():
             'ps_car_13',
             'ps_car_14',
             'ps_car_15',
+            'ps_car_13_x_ps_reg_03',
             'reverted_one_hot_ps_ind_06_09_cat',
             'reverted_one_hot_ps_ind_16_18_cat',
             'missing_count',
@@ -144,7 +150,7 @@ class FeatureExtractor():
             'reordered_ps_car_10_cat',
             'reordered_ps_car_11_cat',
             'reordered_reverted_one_hot_ps_ind_06_09_cat',
-            'reordered_reverted_one_hot_ps_ind_16_18_cat' 
+            'reordered_reverted_one_hot_ps_ind_16_18_cat'
         ]
 
     @staticmethod
@@ -162,6 +168,7 @@ class FeatureExtractor():
             'ps_car_13',
             'ps_car_14',
             'ps_car_15',
+            'ps_car_13_x_ps_reg_03',
             'missing_count',
             'reordered_ps_ind_02_cat',
             'reordered_ps_ind_04_cat',
@@ -182,7 +189,7 @@ class FeatureExtractor():
             'reordered_ps_car_10_cat',
             # 'reordered_ps_car_11_cat', # too many categories
             'reordered_reverted_one_hot_ps_ind_06_09_cat',
-            'reordered_reverted_one_hot_ps_ind_16_18_cat' 
+            'reordered_reverted_one_hot_ps_ind_16_18_cat'
         ]
 
 def test_features():

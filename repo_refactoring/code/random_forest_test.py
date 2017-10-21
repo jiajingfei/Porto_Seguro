@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 """
 Created on Tue Oct 17 23:01:42 2017
@@ -24,4 +24,4 @@ for x in to_remove:
 
 param = {'features':feature, 'random_state':42}
 single_model = model.RandomForest(data_dir=data_dir, param=param)
-single_model.kfold_train_predict_eval(None)
+single_model.train_predict_eval_and_log()
