@@ -4,202 +4,134 @@ import config
 
 class FeatureExtractor():
 
-    def __dropping_calc_features(self):
-        df = self._df
+    def __dropping_calc_features(self, df):
         for c in df.columns:
             if c.startswith('ps_calc'):
                 del df[c]
 
-    def __hand_design(self):
-        df = self._df
-        df.loc[:, 'ps_car_13_x_ps_reg_03'] = df['ps_car_13'] * df['ps_reg_03']
+    def __hand_design(self, df):
+        df.loc[:, 'hd_ps_car_13_x_ps_reg_03'] = df['ps_car_13'] * df['ps_reg_03']
 
-    def __revert_one_hot(self, features, new_feature):
-        df = self._df
-        new_f = 'reverted_one_hot_{}_cat'.format(new_feature)
-        df.loc[:, new_f] = -1
-        for i, f in enumerate(features):
-            if not (df[df[f]==1][new_f] == -1).all():
-                raise Exception('Error in revert one hot encoding, check {}'.format(features))
-            df.loc[:, new_f] = (i+1) * (df[f]==1) + df[new_f]
+    def __one_hot(self, df, c):
+        for val in self.__unique_vals[c]:
+            df.loc[:, 'oh_{}_{}'.format(c, val)] = (df[c].values==val).astype(int)
 
-    def __reorder(self, feature):
-        df = self._df
-        # only reorder categorical and binary feature
-        assert feature.endswith(('cat', 'bin'))
-        feature_map = self.__reorder_map.get(feature)
+    def __reorder(self, df, c):
+        feature_map = self.__reorder_map.get(c)
+        new_f = 'ro_' + c
         if feature_map is None:
-            tmp = df[[config.label_col, feature]].groupby(feature, as_index=False).mean()
+            tmp = df[[config.label_col, c]].groupby(c, as_index=False).mean()
             tmp = tmp.sort_values(config.label_col).reset_index(drop=True)
-            tmp.loc[:, 'reordered_'+feature] = tmp.index
+            tmp.loc[:, new_f] = tmp.index
             del tmp[config.label_col]
-            self.__reorder_map[feature] = tmp
+            self.__reorder_map[c] = tmp
             feature_map = tmp
-        self._df = df.merge(feature_map, how='left', on=feature).fillna(-1)
+        tmp = df[[c]].merge(feature_map, how='left', on=c).fillna(-1)
+        df.loc[:, new_f] = tmp[new_f]
 
-    def __count_missing(self):
-        df = self._df
+    def __count_missing(self, df):
         df_orig_features = df[[c for c in df.columns if c.startswith('ps')]] 
         df.loc[:, 'missing_count'] = (df_orig_features==-1).sum(axis=1)
 
+    def __mean_range(self, df, c):
+        df.loc[:, 'mean_range_'+c] = (df[c].values > self.__df_mean[c]).astype(int)
+
+    def __median_range(self, df, c):
+        df.loc[:, 'med_range_'+c] = (df[c].values > self.__df_median[c]).astype(int)
+
+    def __revert_one_hot(self, df, features, new_feature):
+        new_f = 'roh_{}'.format(new_feature)
+        df.loc[:, new_f] = -1
+        for i, f in enumerate(features):
+            if not (df[df[f]==1][new_f] == -1).all():
+                raise Exception(
+                    'Error in revert one hot encoding, check {}'.format(features))
+            df.loc[:, new_f] = (i+1) * (df[f]==1) + df[new_f]
+        for c in features:
+            del df[c]
+
     def __init__(self):
+        self.__retired = False
+        self.__handled_training_data = False
         self.__reorder_map = {}
         return None
 
     def _convert(self, df):
-        self._df = df.copy()
-        self.__dropping_calc_features()
-        self.__hand_design()
+        df = df.copy()
+        self.__dropping_calc_features(df)
+        self.__hand_design(df)
         self.__revert_one_hot(
-            ['ps_ind_06_bin', 'ps_ind_07_bin', 'ps_ind_08_bin', 'ps_ind_09_bin'],
-            'ps_ind_06_09'
+            df, ['ps_ind_16_bin', 'ps_ind_17_bin', 'ps_ind_18_bin'], 'ps_ind_16_18'
         )
-        self.__revert_one_hot(
-            ['ps_ind_16_bin', 'ps_ind_17_bin', 'ps_ind_18_bin'],
-            'ps_ind_16_18'
-        )
-        self.__count_missing()
-        for c in self._df.columns:
-            if c.endswith(('bin', 'cat')):
-                self.__reorder(c)
-        return self._df
+        self.__count_missing(df)
 
-    def convert(self, df_train, df_valid, df_test, features):
+        if not self.__handled_training_data:
+            self.__unique_vals = {
+                c: list(df[c].unique()) for c in df.columns
+                if c not in [config.id_col, config.label_col]
+            }
+            self.__one_hot_cols = []
+            self.__drop_cols = []
+            self.__reorder_cols = []
+            for c in df.columns:
+                if c not in [config.id_col, config.label_col]:
+                    if len(self.__unique_vals[c]) > 2 and len(self.__unique_vals[c]) < 7: 
+                        self.__one_hot_cols.append(c)
+                        if c.endswith(('bin', 'cat')):
+                            self.__drop_cols.append(c)
+                    if c.endswith('cat'):
+                        if len(self.__unique_vals[c]) > 7 and len(self.__unique_vals[c]) < 20:
+                            self.__reorder_cols.append(c)
+                            self.__drop_cols.append(c)
+                        elif len(self.__unique_vals[c]) >= 20:
+                            self.__drop_cols.append(c)
+
+        for c in self.__one_hot_cols:
+            self.__one_hot(df, c)
+        for c in self.__reorder_cols:
+            self.__reorder(df, c)
+        for c in self.__drop_cols:
+            del df[c]
+
+        if not self.__handled_training_data:
+            self.__df_median = df.median(axis=0)
+            self.__df_mean = df.mean(axis=0)
+            print self.__df_median
+            print self.__df_mean
+
+        for c in df.columns:
+            if c not in [config.id_col, config.label_col]:
+                if c.startswith('ro_'): 
+                    self.__mean_range(df, c)
+                    self.__median_range(df, c)
+
+                if c.startswith('ps_') and (not c.endswith(('cat', 'bin'))):
+                    self.__mean_range(df, c)
+                    self.__median_range(df, c)
+
+        self.__handled_training_data = True
+        return df
+
+    '''
+    if features are not specified, then don't do any filtering. Otherwise, filter out
+    features that are not in given features
+    '''
+    def convert(self, df_train, df_valid, df_test, features=None):
+        assert (not self.__retired)
         # order matters here, must convert df_train first
         df_train = self._convert(df_train)
         df_valid = None if df_valid is None else self._convert(df_valid)
         df_test = None if df_test is None else self._convert(df_test)
-        def to_features(df, for_test):
-            if df is None:
-                return None
-            elif for_test:
-                return df[features+[config.id_col]]
+        self.__retired = True
+        def filter_features(df, features):
+            if features is None:
+                return df
             else:
-                return df[features+[config.id_col, config.label_col]]
-        return to_features(df_train, False), \
-            to_features(df_valid, False), \
-            to_features(df_test, True)
-
-    @staticmethod
-    def all_features():
-        return [
-            'ps_ind_01',
-            'ps_ind_02_cat',
-            'ps_ind_03',
-            'ps_ind_04_cat',
-            'ps_ind_05_cat',
-            'ps_ind_06_bin',
-            'ps_ind_07_bin',
-            'ps_ind_08_bin',
-            'ps_ind_09_bin',
-            'ps_ind_10_bin',
-            'ps_ind_11_bin',
-            'ps_ind_12_bin',
-            'ps_ind_13_bin',
-            'ps_ind_14',
-            'ps_ind_15',
-            'ps_ind_16_bin',
-            'ps_ind_17_bin',
-            'ps_ind_18_bin',
-            'ps_reg_01',
-            'ps_reg_02',
-            'ps_reg_03',
-            'ps_car_01_cat',
-            'ps_car_02_cat',
-            'ps_car_03_cat',
-            'ps_car_04_cat',
-            'ps_car_05_cat',
-            'ps_car_06_cat',
-            'ps_car_07_cat',
-            'ps_car_08_cat',
-            'ps_car_09_cat',
-            'ps_car_10_cat',
-            'ps_car_11_cat',
-            'ps_car_11',
-            'ps_car_12',
-            'ps_car_13',
-            'ps_car_14',
-            'ps_car_15',
-            'ps_car_13_x_ps_reg_03',
-            'reverted_one_hot_ps_ind_06_09_cat',
-            'reverted_one_hot_ps_ind_16_18_cat',
-            'missing_count',
-            'reordered_ps_ind_02_cat',
-            'reordered_ps_ind_04_cat',
-            'reordered_ps_ind_05_cat',
-            'reordered_ps_ind_06_bin',
-            'reordered_ps_ind_07_bin',
-            'reordered_ps_ind_08_bin',
-            'reordered_ps_ind_09_bin',
-            'reordered_ps_ind_10_bin',
-            'reordered_ps_ind_11_bin',
-            'reordered_ps_ind_12_bin',
-            'reordered_ps_ind_13_bin',
-            'reordered_ps_ind_16_bin',
-            'reordered_ps_ind_17_bin',
-            'reordered_ps_ind_18_bin',
-            'reordered_ps_car_01_cat',
-            'reordered_ps_car_02_cat',
-            'reordered_ps_car_03_cat',
-            'reordered_ps_car_04_cat',
-            'reordered_ps_car_05_cat',
-            'reordered_ps_car_06_cat',
-            'reordered_ps_car_07_cat',
-            'reordered_ps_car_08_cat',
-            'reordered_ps_car_09_cat',
-            'reordered_ps_car_10_cat',
-            'reordered_ps_car_11_cat',
-            'reordered_reverted_one_hot_ps_ind_06_09_cat',
-            'reordered_reverted_one_hot_ps_ind_16_18_cat'
-        ]
-
-    @staticmethod
-    def recommended_features():
-        return [
-            'ps_ind_01',
-            'ps_ind_03',
-            'ps_ind_14',
-            'ps_ind_15',
-            'ps_reg_01',
-            'ps_reg_02',
-            'ps_reg_03',
-            'ps_car_11',
-            'ps_car_12',
-            'ps_car_13',
-            'ps_car_14',
-            'ps_car_15',
-            'ps_car_13_x_ps_reg_03',
-            'missing_count',
-            'reordered_ps_ind_02_cat',
-            'reordered_ps_ind_04_cat',
-            'reordered_ps_ind_05_cat',
-            'reordered_ps_ind_10_bin',
-            'reordered_ps_ind_11_bin',
-            'reordered_ps_ind_12_bin',
-            'reordered_ps_ind_13_bin',
-            'reordered_ps_car_01_cat',
-            'reordered_ps_car_02_cat',
-            'reordered_ps_car_03_cat',
-            'reordered_ps_car_04_cat',
-            'reordered_ps_car_05_cat',
-            'reordered_ps_car_06_cat',
-            'reordered_ps_car_07_cat',
-            'reordered_ps_car_08_cat',
-            'reordered_ps_car_09_cat',
-            'reordered_ps_car_10_cat',
-            # 'reordered_ps_car_11_cat', # too many categories
-            'reordered_reverted_one_hot_ps_ind_06_09_cat',
-            'reordered_reverted_one_hot_ps_ind_16_18_cat'
-        ]
-
-def test_features():
-    from data_type import Training_data as Training_data
-    if not os.path.exists(config.get_data_dir(config.data_sanity_dir)):
-        training_data = Training_data(config.data_raw_dir)
-        training_data.output_small_data_for_sanity_check(config.data_sanity_dir)
-    F = FeatureExtractor
-    f = F()
-    df_train = pd.read_csv(config.data_train_file(config.data_sanity_dir))
-    features_train = f._convert(df_train)
-    assert (set(features_train.columns[2:]) == set(F.all_features()))
-    assert (set(F.recommended_features()) < set(F.all_features()))
+                if config.label_col in df.columns:
+                    cols = features + [config.id_col, config.label_col]
+                else:
+                    cols = features + [config.id_col]
+                return df[cols]
+        return filter_features(df_train, features), \
+            filter_features(df_valid, features), \
+            filter_features(df_test, features)

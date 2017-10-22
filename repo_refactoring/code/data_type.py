@@ -121,39 +121,28 @@ class Training_data(object):
 
 class Prediction(object):
 
-    def __init__(self, df, data_dir, identifier):
-        self._dir = data_dir
-        self._identifier = identifier
-        self._df = df.sort_values(config.id_col).reset_index(drop=True)
+    @staticmethod
+    def save(df, data_dir, filename):
+        save_df_to_file(df, config.pred_filename(data_dir, filename), overwrite=False)
 
-    def _eval(self):
-        filename = config.data_test_target_file(self._dir)
+    @staticmethod
+    def eval(df, data_dir):
+        filename = config.data_test_target_file(data_dir)
         if not os.path.isfile(filename):
             return None
-
         test_target = pd.read_csv(filename)
         test_target = test_target.sort_values(config.id_col).reset_index(drop=True)
-        if not test_target[config.id_col].equals(self._df[config.id_col]):
+        if not test_target[config.id_col].equals(df[config.id_col]):
             raise Exception('id cols are not consistent')
         else:
-            return gini_normalized(test_target[config.label_col], self._df[config.label_col])
-
-    def eval_and_save(self, filename_key):
-        gini = self._eval()
-        save_df_to_file(
-            self._df,
-            config.pred_filename(self._dir, filename_key, self._identifier),
-            overwrite=False
-        )
-        return self._eval()
+            return gini_normalized(test_target[config.label_col], df[config.label_col])
 
 def test_predcition():
     if not os.path.exists(config.get_data_dir(config.data_sanity_dir)):
         training_data = Training_data(config.data_raw_dir)
         training_data.output_small_data_for_sanity_check(config.data_sanity_dir)
     df = pd.read_csv(config.data_test_target_file(config.data_sanity_dir))
-    prediction = Prediction(df, config.data_sanity_dir, identifier="sanity_check")
-    normalized_gini = prediction._eval()
+    normalized_gini = prediction.eval(df, config.data_sanity_dir)
     assert (np.isclose(normalized_gini, 1))
 
 if __name__ == '__main__':
