@@ -69,10 +69,11 @@ class Model():
         Here we will do the k-fold CV on the training data
         and save the results and the parameters to respective log files
 
+        The number of folds, n_splits, should be defined in self._params
+
         Input
         ---------
-        n_splits: <int>
-            number of folds
+        Nothing
 
         Return
         ---------
@@ -132,6 +133,7 @@ class Model():
         training_data = T(self._dir)
         self._sum_pred = 0
 
+        # k fold CV
         for i, (df_train, df_valid) in enumerate(training_data.kfold(n_splits, random_state)):
             return df_train, df_valid
             df_features_train, df_features_valid, df_features_test = F().convert(
@@ -205,7 +207,7 @@ class RandomForest(Model):
         # prepare the model
         model_param = {
             k : v for (k, v) in self._param.items()
-            if k not in ['random_state', 'features']
+            if k not in ['features', 'random_state', 'n_splits']
         }
         self.__clf = RandomForestClassifier(**model_param)
         # fit!
