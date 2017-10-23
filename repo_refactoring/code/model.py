@@ -7,7 +7,7 @@ from data_type import Training_data as T
 from data_type import Prediction as P
 from feature import FeatureExtractor as F
 from utils import gini_normalized, unique_identifier, save_to_file
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 import config
 import xgboost as xgb
 
@@ -272,4 +272,38 @@ class XGBoost_CV(Model):
         return pd.DataFrame(data = {
             config.id_col: ids,
             config.label_col: self._model.predict(d_test)
+        })
+
+
+class Sklearn_gradientboosting(Model):
+    @staticmethod
+    def example_param():
+        return {
+            # Trainer related params
+            'learning_rate': 0.05,
+            'n_estimators': 500,
+            'max_depth': 4,
+            'subsample': 0.8,
+            'n_splits': 5,
+            'random_state': 456,
+            'min_impurity_decrease': 0.001
+        }
+
+    def _train(self, df_features_train, df_features_valid):
+        assert (self._param['n_splits'] > 1)
+        param = {
+            k:v for (k, v) in self._param.items() if k not in ['features', 'n_splits']
+        }
+        self._model = GradientBoostingClassifier(**param)
+        train_X = self._remove_id_and_label(df_features_train)
+        train_y = df_features_train[config.label_col]
+        self._model.fit(train_X, train_y)
+
+    def _pred(self, df_features):
+        ids = df_features[config.id_col]
+        self._model.predict()
+        features = self._remove_id_and_label(df_features)
+        return pd.DataFrame(data={
+            config.id_col: ids,
+            config.label_col: self._model.predict(features)
         })
