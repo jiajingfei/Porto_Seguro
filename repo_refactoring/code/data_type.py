@@ -138,6 +138,12 @@ class Prediction(object):
         else:
             return gini_normalized(test_target[config.label_col], df[config.label_col])
 
+    @staticmethod
+    def generate_submission(in_file, out_file):
+        df = pd.read_csv(in_file)
+        df.loc[:, config.label_col] = df[config.label_col].rank() * 1. / df.shape[0] - 0.5 / df.shape[0]
+        save_df_to_file(df, out_file, overwrite=True)
+
 def test_predcition():
     if not os.path.exists(config.get_data_dir(config.data_sanity_dir)):
         training_data = Training_data(config.data_raw_dir)

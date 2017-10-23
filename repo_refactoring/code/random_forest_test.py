@@ -14,14 +14,7 @@ data_dir = config.get_data_dir('sanity_data')
 
 # is this the best way to get feature list?
 df = pd.read_csv(data_dir+'/train.csv')
-feature = df.columns.tolist()
 to_remove = ['id','target']
-for x in feature:
-    if '_calc_' in x:
-        to_remove.append(x)
-for x in to_remove:
-    feature.remove(x)
-
-param = {'features':feature, 'random_state':42}
+param = {'random_state':42}
 single_model = model.RandomForest(data_dir=data_dir, param=param)
 single_model.train_predict_eval_and_log()
