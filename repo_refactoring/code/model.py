@@ -16,7 +16,6 @@ try:  # for python 2.x
 except:  # for python 3.x
     import pickle
 
-
 '''
 This module is designed to generate deterministic results and keep tracking on the prediction's
 metrics.
@@ -134,6 +133,7 @@ class Model():
         self._sum_pred = 0
 
         for i, (df_train, df_valid) in enumerate(training_data.kfold(n_splits, random_state)):
+            return df_train, df_valid
             df_features_train, df_features_valid, df_features_test = F().convert(
                 df_train, df_valid, self._df_test, self._param.get('features')
             )
@@ -243,8 +243,6 @@ class XGBoost_CV(Model):
         }
 
     def _train(self, df_features_train, df_features_valid):
-        print df_features_train.shape
-        print df_features_valid.shape
         assert (self._param['n_splits'] > 1)
         def gini_xgb(preds, dtrain):
             labels = dtrain.get_label()

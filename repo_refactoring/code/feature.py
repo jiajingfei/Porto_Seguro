@@ -17,38 +17,49 @@ class FeatureExtractor():
             df.loc[:, 'oh_{}_{}'.format(c, val)] = (df[c].values==val).astype(int)
 
     def __reorder(self, df, c):
-        feature_map = self.__reorder_map.get(c)
         new_f = 'ro_' + c
-        if feature_map is None:
+        if self.__reorder_map.get(c) is None:
             tmp = df[[config.label_col, c]].groupby(c, as_index=False).mean()
             tmp = tmp.sort_values(config.label_col).reset_index(drop=True)
             tmp.loc[:, new_f] = tmp.index
             del tmp[config.label_col]
-            self.__reorder_map[c] = tmp
-            feature_map = tmp
-        tmp = df[[c]].merge(feature_map, how='left', on=c).fillna(-1)
-        df.loc[:, new_f] = tmp[new_f]
+            self.__reorder_map[c] = tmp.copy()
+        merged = df[[c]].merge(self.__reorder_map[c], how='left', on=c).fillna(-1)
+        df.loc[:, new_f] = merged[new_f].values
+
+    def get_reorder_map(self, c):
+        return self.__reorder_map[c]
 
     def __count_missing(self, df):
         df_orig_features = df[[c for c in df.columns if c.startswith('ps')]] 
         df.loc[:, 'missing_count'] = (df_orig_features==-1).sum(axis=1)
 
     def __mean_range(self, df, c):
-        df.loc[:, 'mean_range_'+c] = (df[c].values > self.__df_mean[c]).astype(int)
+        df.loc[:, 'mean_range_'+c] = (df[c].astype(float).values > self.__df_mean[c]).astype(int)
 
     def __median_range(self, df, c):
-        df.loc[:, 'med_range_'+c] = (df[c].values > self.__df_median[c]).astype(int)
+        df.loc[:, 'med_range_'+c] = (df[c].astype(float).values > self.__df_median[c]).astype(int)
 
     def __revert_one_hot(self, df, features, new_feature):
         new_f = 'roh_{}'.format(new_feature)
         df.loc[:, new_f] = -1
         for i, f in enumerate(features):
             if not (df[df[f]==1][new_f] == -1).all():
-                raise Exception(
-                    'Error in revert one hot encoding, check {}'.format(features))
+                raise Exception('Error in revert one hot encoding, check {}'.format(features))
             df.loc[:, new_f] = (i+1) * (df[f]==1) + df[new_f]
         for c in features:
             del df[c]
+
+    def __drop_cols_hard_coded(self, df):
+        cols_to_drop = [
+            'ps_ind_10_bin',
+            'ps_ind_11_bin',
+            'ps_ind_12_bin',
+            'ps_ind_13_bin',
+        ]
+        for c in cols_to_drop:
+            if c in df.columns:
+                del df[c]
 
     def __init__(self):
         self.__retired = False
@@ -60,9 +71,8 @@ class FeatureExtractor():
         df = df.copy()
         self.__dropping_calc_features(df)
         self.__hand_design(df)
-        self.__revert_one_hot(
-            df, ['ps_ind_16_bin', 'ps_ind_17_bin', 'ps_ind_18_bin'], 'ps_ind_16_18'
-        )
+        self.__revert_one_hot(df, ['ps_ind_16_bin', 'ps_ind_17_bin', 'ps_ind_18_bin'], 'ps_ind_16_18')
+        self.__drop_cols_hard_coded(df)
         self.__count_missing(df)
 
         if not self.__handled_training_data:
@@ -96,12 +106,10 @@ class FeatureExtractor():
         if not self.__handled_training_data:
             self.__df_median = df.median(axis=0)
             self.__df_mean = df.mean(axis=0)
-            print self.__df_median
-            print self.__df_mean
 
         for c in df.columns:
             if c not in [config.id_col, config.label_col]:
-                if c.startswith('ro_'): 
+                if c.startswith('ro_'):
                     self.__mean_range(df, c)
                     self.__median_range(df, c)
 
