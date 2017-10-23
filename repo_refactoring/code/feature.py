@@ -128,8 +128,11 @@ class FeatureExtractor():
         assert (not self.__retired)
         # order matters here, must convert df_train first
         df_train = self._convert(df_train)
+        print ('train data is converted')
         df_valid = None if df_valid is None else self._convert(df_valid)
+        print ('validation data is converted')
         df_test = None if df_test is None else self._convert(df_test)
+        print ('test data is converted')
         self.__retired = True
         def filter_features(df, features):
             if features is None:
