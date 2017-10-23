@@ -132,6 +132,7 @@ class Prediction(object):
             return None
         test_target = pd.read_csv(filename)
         test_target = test_target.sort_values(config.id_col).reset_index(drop=True)
+        df = df.sort_values(config.id_col).reset_index(drop=True)
         if not test_target[config.id_col].equals(df[config.id_col]):
             raise Exception('id cols are not consistent')
         else:
