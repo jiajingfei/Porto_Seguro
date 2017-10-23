@@ -38,8 +38,8 @@ __pred_base_dir = os.path.join(this_path, '../pred/')
 def get_pred_dir(dir_name):
     return os.path.join(__pred_base_dir, dir_name)
 
-def pred_filename(dir_name, filename, identifier):
-    return os.path.join(get_pred_dir(dir_name), '{}-{}.csv'.format(identifier, filename))
+def pred_filename(dir_name, filename):
+    return os.path.join(get_pred_dir(dir_name), '{}.csv'.format(filename))
 
 def pred_log_file(dir_name):
     return os.path.join(get_pred_dir(dir_name), 'pred_log.csv')

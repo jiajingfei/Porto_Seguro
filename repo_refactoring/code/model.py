@@ -16,7 +16,6 @@ try:  # for python 2.x
 except:  # for python 3.x
     import pickle
 
-
 '''
 This module is designed to generate deterministic results and keep tracking on the prediction's
 metrics.
@@ -27,8 +26,8 @@ class Model():
 
     '''
     data_dir: the directory name of the data, data is not allowed to passed in by dataframe
-    param: a dictionary. It must contain 'features' and 'random_state' if in n_splits != None,
-    its other values may depend on the model
+    param: a dictionary. It must contain 'random_state' if in n_splits != None, its other
+    values may depend on the model.
     '''
     def __init__(self, data_dir, param, identifier=None):
         self._identifier = unique_identifier() if identifier is None else identifier
@@ -66,7 +65,7 @@ class Model():
     '''
     def train_predict_eval_and_log(self):
         '''
-        Main worker function. 
+        Main worker function.
         Here we will do the k-fold CV on the training data
         and save the results and the parameters to respective log files
 
@@ -136,22 +135,19 @@ class Model():
 
         # k fold CV
         for i, (df_train, df_valid) in enumerate(training_data.kfold(n_splits, random_state)):
-            # Doing this once before split is more efficient, but this is easier
-            f = F()
-            # In the current code, we do this over and over again, which is not efficient,
-            # but I suspect the bottleneck is still model training. And if later we decide to
-            # freeze the feature set we want to use, we should do this feature conversion on
-            # the rawdata.
-            df_features_train, df_features_valid, df_features_test = f.convert(
-                df_train, df_valid, self._df_test, self._param['features']
+            return df_train, df_valid
+            df_features_train, df_features_valid, df_features_test = F().convert(
+                df_train, df_valid, self._df_test, self._param.get('features')
             )
             self._train(df_features_train, df_features_valid)
             fold = 'fold{}'.format(i)
-            pred = self._pred(df_features_test)
-            p = P(pred, self._dir, self._identifier)
-            test_gini = p.eval_and_save(fold)
-            self._sum_pred += pred[config.label_col]
-            
+            if df_features_valid is not None:
+                valid_pred = self._pred(df_features_valid)
+                P.save(valid_pred, self._dir, '{}-valid-fold{}'.format(self._identifier, i))
+            test_pred = self._pred(df_features_test)
+            P.save(test_pred, self._dir, '{}-test-fold{}'.format(self._identifier, i))
+            test_gini = P.eval(test_pred, self._dir)
+            self._sum_pred += test_pred[config.label_col]
             if n_splits is not None:
                 train_gini = get_gini(df_features_train)
                 valid_gini = get_gini(df_features_valid)
@@ -169,9 +165,8 @@ class Model():
             fold = 'all'
         else:
             fold = 'sum'
-        p = P(sum_pred, self._dir, self._identifier)
-        test_gini = p.eval_and_save(fold)
-        # save the result log
+        P.save(sum_pred, self._dir, '{}-test-{}'.format(self._identifier, fold))
+        test_gini = P.eval(sum_pred, self._dir)
         save_to_file(
             filename=config.model_log_file(self._dir),
             save_fn=to_save_fn(None, None, test_gini, fold),
@@ -234,11 +229,11 @@ class XGBoost_CV(Model):
     def example_param():
         return {
             # Trainer related params
-            'eta': 0.02,
-            'max_depth': 6,
+            'eta': 0.05,
+            'max_depth': 4,
             'subsample': 0.8,
             'colsample_bytree': 0.8,
-            'objective': 'rank:pairwise',
+            'objective': 'binary:logistic',
             'eval_metric': 'auc',
             'seed': 123,
             'silent': True,
@@ -247,12 +242,9 @@ class XGBoost_CV(Model):
             # General parameters
             'n_splits': 5,
             'random_state': 456,
-            'features': F.recommended_features()
         }
 
     def _train(self, df_features_train, df_features_valid):
-        print df_features_train.shape
-        print df_features_valid.shape
         assert (self._param['n_splits'] > 1)
         def gini_xgb(preds, dtrain):
             labels = dtrain.get_label()
