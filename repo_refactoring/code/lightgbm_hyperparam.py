@@ -7,25 +7,27 @@ from feature import FeatureExtractor
 choice = np.random.choice
 def random_params():
     params = []
-    for colsample_bytree in [0.8, 0.9]:
-        for eta in [0.01, 0.03, 0.05]:
-            for max_depth in [4, 5, 6]:
-                for subsample in [0.8, 0.9]:
-                    for scale_pos_weight in [1]:
+    for learning_rate in [0.005, 0.01, 0.03, 0.07, 0.1, 0.3][::-1]:
+        for max_bin in [5, 10, 30, 70]:
+            for max_depth in [3, 7, 10]:
+                for feature_fraction in [0.7, 0.8]:
+                    for bagging_fraction in [1]:
                         param = {
-                            'colsample_bytree': colsample_bytree,
-                            'eta': eta,
-                            'max_depth': max_depth,
-                            'n_splits': 5,
-                            'n_jobs': 4,
-                            'num_boost_round': 5000,
-                            'objective': 'binary:logistic',
-                            'random_state': 135,
-                            'seed': 246,
-                            'silent': True,
-                            'subsample': subsample,
-                            'scale_pos_weight': scale_pos_weight
-                        }
+                                #'metrics': 'auc', 
+                                'learning_rate': learning_rate, 
+                                'max_depth': max_depth, 
+                                'num_leaves': 2**(max_depth),  # see here: https://lightgbm.readthedocs.io/en/latest/Parameters-Tuning.html
+                                'max_bin': max_bin,  
+                                'objective': 'binary', 
+                                'feature_fraction': feature_fraction,
+                                #'bagging_fraction': bagging_fraction,
+                                #'bagging_freq':10,  
+                                #'min_data': 500,
+                                'n_splits': 5,
+                                'n_jobs': 4,
+                                'n_estimators': 1000, 
+                                'random_state': 1025}
+                        
                         params.append(param)
     return params
 

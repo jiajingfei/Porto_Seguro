@@ -10,6 +10,8 @@ from utils import gini_normalized, unique_identifier, save_to_file
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 import config
 import xgboost as xgb
+import lightgbm as lgb
+
 
 try:  # for python 2.x
     import cPickle as pickle
@@ -145,8 +147,10 @@ class Model():
                 P.save(valid_pred, self._dir, '{}-valid-fold{}'.format(self._identifier, i))
             test_pred = self._pred(df_features_test)
             P.save(test_pred, self._dir, '{}-test-fold{}'.format(self._identifier, i))
+            
             test_gini = P.eval(test_pred, self._dir)
             self._sum_pred += test_pred[config.label_col]
+            
             if n_splits is not None:
                 train_gini = get_gini(df_features_train)
                 valid_gini = get_gini(df_features_valid)
@@ -310,4 +314,47 @@ class Sklearn_gradientboosting(Model):
 
 class lightgbm(Model):
     '''this is for the lightgbm model'''
-    pass
+    
+    def example_param():
+        return {'metric': 'auc', 
+                'learning_rate' : 0.01, 
+                'max_depth':10, 
+                'max_bin':10,  
+                'objective': 'binary', 
+                'feature_fraction': 0.8,
+                'bagging_fraction':0.9,
+                'bagging_freq':10,  
+                'min_data': 500,
+                'n_splits': 5,
+                'random_state': 1025}
+
+    def _train(self, df_features_train, df_features_valid):
+        assert (self._param['n_splits'] > 1)
+
+        def gini_lgb(preds, dtrain):
+            y = list(dtrain.get_label())
+            score = gini(y, preds) / gini(y, y)
+            return 'gini', score, True
+        
+        param = {
+            k:v for (k, v) in self._param.items() if k not in ['features', 'n_splits', 'random_state']
+        }
+        train_X = self._remove_id_and_label(df_features_train)#.values
+        valid_X = self._remove_id_and_label(df_features_valid)#.values
+        train_y = df_features_train[config.label_col]#.values
+        valid_y = df_features_valid[config.label_col]#.values
+
+        self._model = lgb.LGBMClassifier(**param)
+        self._model.fit(train_X.values, train_y.values, 
+                            eval_set=[(valid_X.values, valid_y.values)], 
+                            early_stopping_rounds=100, eval_metric='auc', 
+                            verbose=True)
+        
+    def _pred(self, df_features):
+        ids = df_features[config.id_col]
+        d_test = self._remove_id_and_label(df_features).values
+        return pd.DataFrame(data={
+            config.id_col: ids,
+            config.label_col: self._model.predict(d_test)
+            })
+
