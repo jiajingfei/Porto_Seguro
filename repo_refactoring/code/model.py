@@ -307,3 +307,7 @@ class Sklearn_gradientboosting(Model):
             config.id_col: ids,
             config.label_col: self._model.predict(features)
         })
+
+class lightgbm(Model):
+    '''this is for the lightgbm model'''
+    pass
