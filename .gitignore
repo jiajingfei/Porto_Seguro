@@ -7,6 +7,8 @@ Thumbs.db
 /data/*
 */.ipynb_checkpoints/*
 *.csv
+*.tsv
+*.tfevents
 *.pyc
 *~
 /repo_refactoring/code/debug/*
