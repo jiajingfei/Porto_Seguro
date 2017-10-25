@@ -1,29 +1,26 @@
 import sys
 import numpy as np
 import argparse
-from model import XGBoost_CV as M
+from model import Catboost_CV as M
 from feature import FeatureExtractor
 
 def random_params():
     params = []
-    for colsample_bytree in [0.8, 0.9]:
-        for eta in [0.01, 0.03, 0.05]:
-            for max_depth in [4, 5, 6]:
-                for subsample in [0.8, 0.9]:
-                    for scale_pos_weight in [1]:
+    for learning_rate in [0.02, 0.05]:
+        for iterations in [500, 1000]:
+            for depth in [4, 6]:
+                for l2_leaf_reg in [5, 20]:
+                    for subsample in [0.8]:
                         param = {
-                            'colsample_bytree': colsample_bytree,
-                            'eta': eta,
-                            'max_depth': max_depth,
+                            'learning_rate': learning_rate,
+                            'iterations': iterations,
+                            'depth': depth,
+                            'l2_leaf_reg': l2_leaf_reg,
+                            'loss_function': 'Logloss',
+                            'verbose': False,
                             'n_splits': 5,
-                            'n_jobs': 4,
-                            'num_boost_round': 5000,
-                            'objective': 'binary:logistic',
-                            'random_state': 135,
-                            'seed': 246,
-                            'silent': True,
-                            'subsample': subsample,
-                            'scale_pos_weight': scale_pos_weight
+                            'random_state': 456,
+                            'optimize_rounds': True
                         }
                         params.append(param)
     return params
