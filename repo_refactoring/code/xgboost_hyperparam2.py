@@ -7,11 +7,11 @@ from feature import FeatureExtractor
 choice = np.random.choice
 def random_params():
     params = []
-    for colsample_bytree in [0.8, 0.9]:
+    for colsample_bytree in [0.7]:
         for eta in [0.01, 0.03, 0.05]:
             for max_depth in [4, 5, 6]:
-                for subsample in [0.8, 0.9]:
-                    for scale_pos_weight in [5]:
+                for subsample in [0.7]:
+                    for scale_pos_weight in [1]:
                         param = {
                             'colsample_bytree': colsample_bytree,
                             'eta': eta,

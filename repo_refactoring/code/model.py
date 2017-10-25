@@ -8,6 +8,7 @@ from data_type import Prediction as P
 from feature import FeatureExtractor as F
 from utils import gini_normalized, unique_identifier, save_to_file
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from catboost import CatBoostClassifier
 import config
 import xgboost as xgb
 import lightgbm as lgb
@@ -135,6 +136,11 @@ class Model():
         training_data = T(self._dir)
         self._sum_pred = 0
 
+        param_file = config.model_filename(
+            self._dir,
+            filename='param',
+            identifier=self._identifier
+        )
         # k fold CV
         for i, (df_train, df_valid) in enumerate(training_data.kfold(n_splits, random_state)):
             df_features_train, df_features_valid, df_features_test = F().convert(
@@ -174,11 +180,6 @@ class Model():
             filename=config.model_log_file(self._dir),
             save_fn=to_save_fn(None, None, test_gini, fold),
             allow_existing=True
-        )
-        param_file = config.model_filename(
-            self._dir,
-            filename='param',
-            identifier=self._identifier
         )
         save_to_file(
             filename=param_file,
@@ -275,7 +276,7 @@ class XGBoost_CV(Model):
         d_test = xgb.DMatrix(self._remove_id_and_label(df_features))
         return pd.DataFrame(data = {
             config.id_col: ids,
-            config.label_col: self._model.predict(d_test)
+            config.label_col: self._model.predict_proba(d_test)
         })
 
 
@@ -305,11 +306,54 @@ class Sklearn_gradientboosting(Model):
 
     def _pred(self, df_features):
         ids = df_features[config.id_col]
-        self._model.predict()
         features = self._remove_id_and_label(df_features)
         return pd.DataFrame(data={
             config.id_col: ids,
-            config.label_col: self._model.predict(features)
+            config.label_col: self._model.predict_proba(features)[:, 1]
+        })
+
+class Catboost_CV(Model):
+    @staticmethod
+    def example_param():
+        return {
+            # Trainer related params
+            'learning_rate': 0.05,
+            'iterations': 1000,
+            'depth': 6,
+            'l2_leaf_reg': 6,
+            'loss_function': 'Logloss',
+            'verbose': True,
+            'n_splits': 5,
+            'random_state': 456,
+            'optimize_rounds': True
+        }
+
+    def _train(self, df_features_train, df_features_valid):
+        assert (self._param['n_splits'] > 1)
+        param = {
+            k:v for (k, v) in self._param.items()
+            if k not in ['features', 'n_splits', 'random_state', 'optimize_rounds']
+        }
+        model = CatBoostClassifier(**param)
+        train_X = self._remove_id_and_label(df_features_train)
+        train_y = df_features_train[config.label_col]
+        valid_X = self._remove_id_and_label(df_features_valid)
+        valid_y = df_features_valid[config.label_col]
+        self._fit_model = model.fit(
+            train_X,
+            train_y,
+            eval_set=[valid_X, valid_y],
+            use_best_model=self._param.get('optimize_rounds')
+        )
+        print( "  N trees = ", model.tree_count_ )
+
+    def _pred(self, df_features):
+        ids = df_features[config.id_col]
+        features = self._remove_id_and_label(df_features)
+        pred_labels = self._fit_model.predict_proba(features)[:, 1]
+        return pd.DataFrame(data={
+            config.id_col: ids,
+            config.label_col: pred_labels
         })
 
 class lightgbm(Model):
@@ -358,4 +402,3 @@ class lightgbm(Model):
             config.id_col: ids,
             config.label_col: self._model.predict_proba(d_test)[:,1] 
             })
-
