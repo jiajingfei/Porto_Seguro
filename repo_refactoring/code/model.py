@@ -345,16 +345,17 @@ class lightgbm(Model):
         valid_y = df_features_valid[config.label_col]#.values
 
         self._model = lgb.LGBMClassifier(**param)
-        self._model.fit(train_X.values, train_y.values, 
-                            eval_set=[(valid_X.values, valid_y.values)], 
-                            early_stopping_rounds=100, eval_metric='auc', 
+        self._model.fit(train_X, train_y, 
+                            eval_set=[(valid_X, valid_y)], 
+                            early_stopping_rounds=100, 
+                            eval_metric='auc', 
                             verbose=True)
         
     def _pred(self, df_features):
         ids = df_features[config.id_col]
-        d_test = self._remove_id_and_label(df_features).values
+        d_test = self._remove_id_and_label(df_features)
         return pd.DataFrame(data={
             config.id_col: ids,
-            config.label_col: self._model.predict(d_test)
+            config.label_col: self._model.predict_proba(d_test)[:,1] 
             })
 
