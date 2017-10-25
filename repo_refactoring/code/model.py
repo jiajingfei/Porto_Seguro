@@ -305,7 +305,7 @@ class Sklearn_gradientboosting(Model):
         features = self._remove_id_and_label(df_features)
         return pd.DataFrame(data={
             config.id_col: ids,
-            config.label_col: self._model.predict_proba(features)
+            config.label_col: self._model.predict_proba(features)[:, 1]
         })
 
 class Catboost_CV(Model):
