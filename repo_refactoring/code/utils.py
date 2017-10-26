@@ -34,3 +34,18 @@ def test_gini_normalized():
     p = np.random.normal(size = 100)
     assert(gini_normalized(a, p) < 1)
     assert(np.isclose(gini_normalized(a, a), 1))
+
+def join_model_and_params(model_dir):
+    df = pd.read_csv(os.path.join(model_dir, 'model_log.csv'))
+    identifiers = df.identifier.unique()
+    params = []
+    for id in identifiers:
+        with open(
+            os.path.join(model_dir, '{}-param.pickle'.format(id)), 'rb'
+        ) as handle:
+            param = pickle.load(handle)
+            param['identifier'] = id
+        params.append(param)
+    p = pd.DataFrame(data = params)
+    df = df.merge(p, on='identifier', how='left')
+    df.to_csv(os.path.join(model_dir, 'model_log_with_param.csv'))
