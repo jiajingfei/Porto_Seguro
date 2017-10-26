@@ -9,7 +9,7 @@ def random_params():
     for learning_rate in [0.02, 0.05]:
         for iterations in [500, 1000]:
             for depth in [4, 6]:
-                for l2_leaf_reg in [5]:
+                for l2_leaf_reg in [20]:
                     for subsample in [0.8]:
                         param = {
                             'learning_rate': learning_rate,
