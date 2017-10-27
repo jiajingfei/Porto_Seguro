@@ -152,7 +152,7 @@ def test_predcition():
     normalized_gini = prediction.eval(df, config.data_sanity_dir)
     assert (np.isclose(normalized_gini, 1))
 
-if __name__ == '__main__':
+if __name__ == '__main__' and not callable(globals().get("get_ipython", None)):
     parser = argparse.ArgumentParser(description='split training data into training and validation dataset')
     parser.add_argument(
         '--mode',

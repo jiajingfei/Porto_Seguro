@@ -2,6 +2,14 @@ import os
 import numpy as np
 import random, string
 import datetime as dt
+import config
+import lightgbm as lgb
+import matplotlib.pyplot as plt
+plt.style.use('ggplot')
+
+def remove_id_and_label(df):
+    cols = [c for c in df.columns if c not in [config.id_col, config.label_col]]
+    return df[cols]
 
 def save_to_file(filename, save_fn, allow_existing=False):
     if os.path.isfile(filename):
@@ -49,3 +57,22 @@ def join_model_and_params(model_dir):
     p = pd.DataFrame(data = params)
     df = df.merge(p, on='identifier', how='left')
     df.to_csv(os.path.join(model_dir, 'model_log_with_param.csv'))
+
+# To use the following function in jupyter notebook, you can run the following two lines
+# %run "PATH TO THIS FILE"
+# %matplotlib inline
+def feature_importance(df, features=None):
+    y = df[config.label_col]
+    X= remove_id_and_label(df)
+    if features is not None:
+        X = X[features]
+    model = lgb.LGBMClassifier(
+        learning_rate=0.05,
+        n_estimators=500,
+        max_depth=5,
+        num_leaves=32,
+        max_bin=10
+    )
+    model.fit(X, y)
+    lgb.plot_importance(model, figsize=(20,15))
+    return model

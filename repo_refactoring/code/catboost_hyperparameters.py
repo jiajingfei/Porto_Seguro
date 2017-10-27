@@ -6,10 +6,10 @@ from feature import FeatureExtractor
 
 def random_params():
     params = []
-    for learning_rate in [0.02, 0.05]:
-        for iterations in [500, 1000]:
-            for depth in [4, 6]:
-                for l2_leaf_reg in [5]:
+    for learning_rate in [0.04, 0.08]:
+        for iterations in [800, 1500]:
+            for depth in [5, 8]:
+                for l2_leaf_reg in [10]:
                     for subsample in [0.8]:
                         param = {
                             'learning_rate': learning_rate,

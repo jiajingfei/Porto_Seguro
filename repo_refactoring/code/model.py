@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 from data_type import Training_data as T
 from data_type import Prediction as P
 from feature import FeatureExtractor as F
-from utils import gini_normalized, unique_identifier, save_to_file
+from utils import gini_normalized, unique_identifier, save_to_file, remove_id_and_label
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from catboost import CatBoostClassifier
 import config
@@ -48,12 +48,6 @@ class Model():
     we don't need df_valie (for example, linear regression), the users should check
     df_valid=None by themselves for this case
     '''
-
-    # This will not modify the original dataframe
-    def _remove_id_and_label(self, df):
-        cols = [c for c in df.columns if c not in [config.id_col, config.label_col]]
-        return df[cols]
-
     @abstractmethod
     def _train(self, df_features_train, df_features_valid):
         raise Exception('Unimplemented in abstract class')
@@ -207,7 +201,7 @@ class RandomForest(Model):
         # for RF, we don't need a validation set for training
         # prepare the data
         y = df_features_train[config.label_col]
-        X = self._remove_id_and_label(df_features_train)
+        X = remove_id_and_label(df_features_train)
         # prepare the model
         model_param = {
             k : v for (k, v) in self._param.items()
@@ -220,7 +214,7 @@ class RandomForest(Model):
 
     def _pred(self, df_features):
         ids = df_features[config.id_col]
-        features = self._remove_id_and_label(df_features)
+        features = remove_id_and_label(df_features)
         y_proba = self.__clf.predict_proba(features)[:,1]  # the proba of being 1
         return pd.DataFrame(data={
             config.id_col: ids,
@@ -254,8 +248,8 @@ class XGBoost_CV(Model):
             labels = dtrain.get_label()
             gini_score = gini_normalized(labels, preds)
             return [('gini', gini_score)]
-        train_X = self._remove_id_and_label(df_features_train)#.values
-        valid_X = self._remove_id_and_label(df_features_valid)#.values
+        train_X = remove_id_and_label(df_features_train)#.values
+        valid_X = remove_id_and_label(df_features_valid)#.values
         train_y = df_features_train[config.label_col]#.values
         valid_y = df_features_valid[config.label_col]#.values
         d_train = xgb.DMatrix(train_X, train_y)
@@ -273,7 +267,7 @@ class XGBoost_CV(Model):
 
     def _pred(self, df_features):
         ids = df_features[config.id_col]
-        d_test = xgb.DMatrix(self._remove_id_and_label(df_features))
+        d_test = xgb.DMatrix(remove_id_and_label(df_features))
         return pd.DataFrame(data = {
             config.id_col: ids,
             config.label_col: self._model.predict_proba(d_test)
@@ -300,13 +294,13 @@ class Sklearn_gradientboosting(Model):
             k:v for (k, v) in self._param.items() if k not in ['features', 'n_splits']
         }
         self._model = GradientBoostingClassifier(**param)
-        train_X = self._remove_id_and_label(df_features_train)
+        train_X = remove_id_and_label(df_features_train)
         train_y = df_features_train[config.label_col]
         self._model.fit(train_X, train_y)
 
     def _pred(self, df_features):
         ids = df_features[config.id_col]
-        features = self._remove_id_and_label(df_features)
+        features = remove_id_and_label(df_features)
         return pd.DataFrame(data={
             config.id_col: ids,
             config.label_col: self._model.predict_proba(features)[:, 1]
@@ -335,9 +329,9 @@ class Catboost_CV(Model):
             if k not in ['features', 'n_splits', 'random_state', 'optimize_rounds']
         }
         model = CatBoostClassifier(**param)
-        train_X = self._remove_id_and_label(df_features_train)
+        train_X = remove_id_and_label(df_features_train)
         train_y = df_features_train[config.label_col]
-        valid_X = self._remove_id_and_label(df_features_valid)
+        valid_X = remove_id_and_label(df_features_valid)
         valid_y = df_features_valid[config.label_col]
         self._fit_model = model.fit(
             train_X,
@@ -349,25 +343,21 @@ class Catboost_CV(Model):
 
     def _pred(self, df_features):
         ids = df_features[config.id_col]
-        features = self._remove_id_and_label(df_features)
-        pred_labels = self._fit_model.predict_proba(features)[:, 1]
+        features = remove_id_and_label(df_features)
         return pd.DataFrame(data={
             config.id_col: ids,
-            config.label_col: pred_labels
+            config.label_col: self._fit_model.predict_proba(features)[:, 1]
         })
 
-class lightgbm(Model):
-    '''this is for the lightgbm model'''
-    
     def example_param():
-        return {'metric': 'auc', 
-                'learning_rate' : 0.01, 
-                'max_depth':10, 
-                'max_bin':10,  
-                'objective': 'binary', 
+        return {'metric': 'auc',
+                'learning_rate' : 0.01,
+                'max_depth':10,
+                'max_bin':10,
+                'objective': 'binary',
                 'feature_fraction': 0.8,
                 'bagging_fraction':0.9,
-                'bagging_freq':10,  
+                'bagging_freq':10,
                 'min_data': 500,
                 'n_splits': 5,
                 'random_state': 1025}
@@ -379,26 +369,28 @@ class lightgbm(Model):
             y = list(dtrain.get_label())
             score = gini(y, preds) / gini(y, y)
             return 'gini', score, True
-        
+
         param = {
             k:v for (k, v) in self._param.items() if k not in ['features', 'n_splits', 'random_state']
         }
-        train_X = self._remove_id_and_label(df_features_train)#.values
-        valid_X = self._remove_id_and_label(df_features_valid)#.values
-        train_y = df_features_train[config.label_col]#.values
-        valid_y = df_features_valid[config.label_col]#.values
+        train_X = remove_id_and_label(df_features_train)
+        valid_X = remove_id_and_label(df_features_valid)
+        train_y = df_features_train[config.label_col]
+        valid_y = df_features_valid[config.label_col]
 
         self._model = lgb.LGBMClassifier(**param)
-        self._model.fit(train_X, train_y, 
-                            eval_set=[(valid_X, valid_y)], 
-                            early_stopping_rounds=100, 
-                            eval_metric='auc', 
-                            verbose=True)
-        
+        self._model.fit(
+            train_X,
+            train_y,
+            eval_set=[(valid_X, valid_y)],
+            early_stopping_rounds=100,
+            eval_metric='auc',
+            verbose=True)
+
     def _pred(self, df_features):
         ids = df_features[config.id_col]
-        d_test = self._remove_id_and_label(df_features)
+        d_test = remove_id_and_label(df_features)
         return pd.DataFrame(data={
             config.id_col: ids,
-            config.label_col: self._model.predict_proba(d_test)[:,1] 
+            config.label_col: self._model.predict_proba(d_test)[:,1]
             })
