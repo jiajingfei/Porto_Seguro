@@ -110,8 +110,8 @@ class FeatureExtractor():
                         elif len(self.__unique_vals[c]) >= 20:
                             self.__drop_cols.append(c)
 
-        for c in self.__freq_cols:
-            self.__freq(df, c)
+ #       for c in self.__freq_cols:
+ #           self.__freq(df, c)
         for c in self.__one_hot_cols:
             self.__one_hot(df, c)
         for c in self.__reorder_cols:

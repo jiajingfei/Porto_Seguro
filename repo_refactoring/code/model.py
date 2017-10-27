@@ -349,18 +349,21 @@ class Catboost_CV(Model):
             config.label_col: self._fit_model.predict_proba(features)[:, 1]
         })
 
+class Lightgbm_CV(Model):
     def example_param():
-        return {'metric': 'auc',
-                'learning_rate' : 0.01,
-                'max_depth':10,
-                'max_bin':10,
-                'objective': 'binary',
-                'feature_fraction': 0.8,
-                'bagging_fraction':0.9,
-                'bagging_freq':10,
-                'min_data': 500,
-                'n_splits': 5,
-                'random_state': 1025}
+        return {
+            'metric': 'auc',
+            'learning_rate' : 0.01,
+            'max_depth': 10,
+            'max_bin': 10,
+            'objective': 'binary',
+            'feature_fraction': 0.8,
+            'bagging_fraction': 0.9,
+            'bagging_freq': 10,
+            'min_data': 500,
+            'n_splits': 5,
+            'random_state': 1025,
+        }
 
     def _train(self, df_features_train, df_features_valid):
         assert (self._param['n_splits'] > 1)
@@ -371,7 +374,8 @@ class Catboost_CV(Model):
             return 'gini', score, True
 
         param = {
-            k:v for (k, v) in self._param.items() if k not in ['features', 'n_splits', 'random_state']
+            k:v for (k, v) in self._param.items() if
+            k not in ['features', 'n_splits', 'random_state', 'excluded_features']
         }
         train_X = remove_id_and_label(df_features_train)
         valid_X = remove_id_and_label(df_features_valid)
