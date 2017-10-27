@@ -138,7 +138,7 @@ class Model():
         # k fold CV
         for i, (df_train, df_valid) in enumerate(training_data.kfold(n_splits, random_state)):
             df_features_train, df_features_valid, df_features_test = F().convert(
-                df_train, df_valid, self._df_test, self._param.get('features')
+                df_train, df_valid, self._df_test, self._param.get('excluded_features')
             )
             self._train(df_features_train, df_features_valid)
             fold = 'fold{}'.format(i)
@@ -147,10 +147,10 @@ class Model():
                 P.save(valid_pred, self._dir, '{}-valid-fold{}'.format(self._identifier, i))
             test_pred = self._pred(df_features_test)
             P.save(test_pred, self._dir, '{}-test-fold{}'.format(self._identifier, i))
-            
+
             test_gini = P.eval(test_pred, self._dir)
             self._sum_pred += test_pred[config.label_col]
-            
+
             if n_splits is not None:
                 train_gini = get_gini(df_features_train)
                 valid_gini = get_gini(df_features_valid)
@@ -205,7 +205,7 @@ class RandomForest(Model):
         # prepare the model
         model_param = {
             k : v for (k, v) in self._param.items()
-            if k not in ['features', 'random_state', 'n_splits']
+            if k not in ['excluded_features', 'random_state', 'n_splits']
         }
         self.__clf = RandomForestClassifier(**model_param)
         # fit!

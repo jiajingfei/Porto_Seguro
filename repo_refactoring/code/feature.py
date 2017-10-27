@@ -16,6 +16,10 @@ class FeatureExtractor():
         for val in self.__unique_vals[c]:
             df.loc[:, 'oh_{}_{}'.format(c, val)] = (df[c].values==val).astype(int)
 
+    def __freq(self, df, c):
+        tmp = df[[c]].merge(self.__unique_val_freq[c], on=c)
+        df.loc[:, 'freq_{}'.format(c)] = tmp['freq_{}'.format(c)]
+
     def __reorder(self, df, c):
         new_f = 'ro_' + c
         if self.__reorder_map.get(c) is None:
@@ -80,11 +84,21 @@ class FeatureExtractor():
                 c: list(df[c].unique()) for c in df.columns
                 if c not in [config.id_col, config.label_col]
             }
+            self.__unique_val_freq = {}
+            n = df.shape[0]
+            for c in df.columns:
+                self.__unique_val_freq[c] = df[c].value_counts().reset_index().rename(
+                    columns={'index':c, c:'freq_'+c}
+                )
+
             self.__one_hot_cols = []
+            self.__freq_cols = []
             self.__drop_cols = []
             self.__reorder_cols = []
             for c in df.columns:
                 if c not in [config.id_col, config.label_col]:
+                    if len(self.__unique_vals[c]) < 20:
+                        self.__freq_cols.append(c)
                     if len(self.__unique_vals[c]) > 2 and len(self.__unique_vals[c]) < 7: 
                         self.__one_hot_cols.append(c)
                         if c.endswith(('bin', 'cat')):
@@ -96,6 +110,8 @@ class FeatureExtractor():
                         elif len(self.__unique_vals[c]) >= 20:
                             self.__drop_cols.append(c)
 
+        for c in self.__freq_cols:
+            self.__freq(df, c)
         for c in self.__one_hot_cols:
             self.__one_hot(df, c)
         for c in self.__reorder_cols:
@@ -121,10 +137,10 @@ class FeatureExtractor():
         return df
 
     '''
-    if features are not specified, then don't do any filtering. Otherwise, filter out
-    features that are not in given features
+    if excluded features are not specified, then don't do any filtering. Otherwise, filter out
+    all the excluded features
     '''
-    def convert(self, df_train, df_valid, df_test, features=None):
+    def convert(self, df_train, df_valid, df_test, excluded_features=None):
         assert (not self.__retired)
         # order matters here, must convert df_train first
         df_train = self._convert(df_train)
@@ -134,15 +150,12 @@ class FeatureExtractor():
         df_test = None if df_test is None else self._convert(df_test)
         print ('test data is converted')
         self.__retired = True
-        def filter_features(df, features):
-            if features is None:
+        def filter_features(df, excluded_features):
+            if excluded_features is None:
                 return df
             else:
-                if config.label_col in df.columns:
-                    cols = features + [config.id_col, config.label_col]
-                else:
-                    cols = features + [config.id_col]
+                cols = [c for c in df.columns if c not in excluded_features]
                 return df[cols]
-        return filter_features(df_train, features), \
-            filter_features(df_valid, features), \
-            filter_features(df_test, features)
+        return filter_features(df_train, excluded_features), \
+            filter_features(df_valid, excluded_features), \
+            filter_features(df_test, excluded_features)

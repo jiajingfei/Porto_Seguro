@@ -71,8 +71,11 @@ def feature_importance(df, features=None, n_estimators=500):
         n_estimators=n_estimators,
         max_depth=5,
         num_leaves=32,
-        max_bin=10
+        max_bin=10,
+        colsample_bytree=0.8,
+        subsample=0.8,
+        subsample_freq=10
     )
     model.fit(X, y)
-    lgb.plot_importance(model, figsize=(20,15))
+    lgb.plot_importance(model, figsize=(15,25))
     return model
