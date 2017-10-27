@@ -61,14 +61,14 @@ def join_model_and_params(model_dir):
 # To use the following function in jupyter notebook, you can run the following two lines
 # %run "PATH TO THIS FILE"
 # %matplotlib inline
-def feature_importance(df, features=None):
+def feature_importance(df, features=None, n_estimators=500):
     y = df[config.label_col]
     X= remove_id_and_label(df)
     if features is not None:
         X = X[features]
     model = lgb.LGBMClassifier(
         learning_rate=0.05,
-        n_estimators=500,
+        n_estimators=n_estimators,
         max_depth=5,
         num_leaves=32,
         max_bin=10
