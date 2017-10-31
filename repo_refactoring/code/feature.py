@@ -80,21 +80,31 @@ class FeatureExtractor():
                 c: list(df[c].unique()) for c in df.columns
                 if c not in [config.id_col, config.label_col]
             }
+            self.__num_unique_vals = {
+                c: len(df[c].unique()) for c in df.columns
+                if c not in [config.id_col, config.label_col]
+            }
             self.__one_hot_cols = []
+            self.__freq_cols = []
             self.__drop_cols = []
             self.__reorder_cols = []
             for c in df.columns:
                 if c not in [config.id_col, config.label_col]:
-                    if len(self.__unique_vals[c]) > 2 and len(self.__unique_vals[c]) < 7: 
+                    if self.__num_unique_vals[c] > 2 and self.__num_unique_vals[c] < 7:
                         self.__one_hot_cols.append(c)
                         if c.endswith(('bin', 'cat')):
                             self.__drop_cols.append(c)
                     if c.endswith('cat'):
-                        if len(self.__unique_vals[c]) > 7 and len(self.__unique_vals[c]) < 20:
+                        if self.__num_unique_vals[c] > 7 and self.__num_unique_vals[c] < 20:
+                            self.__drop_cols.append(c)
                             self.__reorder_cols.append(c)
+                        elif self.__num_unique_vals[c] >= 20:
                             self.__drop_cols.append(c)
-                        elif len(self.__unique_vals[c]) >= 20:
-                            self.__drop_cols.append(c)
+                    '''
+                    if not c.endswith(('cat', 'bin')):
+                        if self.__num_unique_vals[c] < 5:
+                            self.__reorder_cols.append(c)
+                    '''
 
         for c in self.__one_hot_cols:
             self.__one_hot(df, c)
@@ -113,7 +123,7 @@ class FeatureExtractor():
                     self.__mean_range(df, c)
                     self.__median_range(df, c)
 
-                if c.startswith('ps_') and (not c.endswith(('cat', 'bin'))):
+                if c.startswith('ps_') and (not c.endswith(('cat', 'bin'))): 
                     self.__mean_range(df, c)
                     self.__median_range(df, c)
 
@@ -121,10 +131,10 @@ class FeatureExtractor():
         return df
 
     '''
-    if features are not specified, then don't do any filtering. Otherwise, filter out
-    features that are not in given features
+    if excluded features are not specified, then don't do any filtering. Otherwise, filter out
+    all the excluded features
     '''
-    def convert(self, df_train, df_valid, df_test, features=None):
+    def convert(self, df_train, df_valid, df_test, excluded_features=None):
         assert (not self.__retired)
         # order matters here, must convert df_train first
         df_train = self._convert(df_train)
@@ -134,15 +144,12 @@ class FeatureExtractor():
         df_test = None if df_test is None else self._convert(df_test)
         print ('test data is converted')
         self.__retired = True
-        def filter_features(df, features):
-            if features is None:
+        def filter_features(df, excluded_features):
+            if excluded_features is None:
                 return df
             else:
-                if config.label_col in df.columns:
-                    cols = features + [config.id_col, config.label_col]
-                else:
-                    cols = features + [config.id_col]
+                cols = [c for c in df.columns if c not in excluded_features]
                 return df[cols]
-        return filter_features(df_train, features), \
-            filter_features(df_valid, features), \
-            filter_features(df_test, features)
+        return filter_features(df_train, excluded_features), \
+            filter_features(df_valid, excluded_features), \
+            filter_features(df_test, excluded_features)
