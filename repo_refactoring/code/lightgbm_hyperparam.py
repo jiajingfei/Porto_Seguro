@@ -42,29 +42,31 @@ def optimal_param():
         'max_depth': 5,
         'n_estimators': 2000,
         'n_jobs': 4,
-        'n_splits': 5,
+        'n_splits': 20,
         'num_leaves': 32,
         'objective': 'binary',
         'random_state': 1025,
         'subsample': 0.8,
         'subsample_freq': 10,
-        'excluded_features': [
-            'mean_range_ps_1nd_14',
-            'med_range_ps_1nd_14',
-            'oh_ps_car_10_cat_2',
-            'mean_range_ps_car_11',
-            'med_range_ps_car_12',
-            'oh_ps_ind_04_cat_-1',
-            'med_range_ro_ps_car_04_cat',
-            'med_range_ro_ps_car_06_cat',
-            'med_range_ps_ind_15',
-            'med_range_ro_ps_ind_05_cat',
-            'med_range_ps_ind_03',
-            'med_range_ps_ind_01',
-            'oh_ps_ind_14_2',
-        ]
     }
-
+#        '''
+#        'excluded_features': [
+#            'mean_range_ps_1nd_14',
+#            'med_range_ps_1nd_14',
+#            'oh_ps_car_10_cat_2',
+#            'mean_range_ps_car_11',
+#            'med_range_ps_car_12',
+#            'oh_ps_ind_04_cat_-1',
+#            'med_range_ro_ps_car_04_cat',
+#            'med_range_ro_ps_car_06_cat',
+#            'med_range_ps_ind_15',
+#            'med_range_ro_ps_ind_05_cat',
+#            'med_range_ps_ind_03',
+#            'med_range_ps_ind_01',
+#            'oh_ps_ind_14_2',
+#        ]
+#        '''
+#
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='tuning hyperparameter')
     parser.add_argument(

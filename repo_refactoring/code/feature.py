@@ -16,10 +16,6 @@ class FeatureExtractor():
         for val in self.__unique_vals[c]:
             df.loc[:, 'oh_{}_{}'.format(c, val)] = (df[c].values==val).astype(int)
 
-    def __freq(self, df, c):
-        tmp = df[[c]].merge(self.__unique_val_freq[c], on=c)
-        df.loc[:, 'freq_{}'.format(c)] = tmp['freq_{}'.format(c)]
-
     def __reorder(self, df, c):
         new_f = 'ro_' + c
         if self.__reorder_map.get(c) is None:
@@ -84,34 +80,32 @@ class FeatureExtractor():
                 c: list(df[c].unique()) for c in df.columns
                 if c not in [config.id_col, config.label_col]
             }
-            self.__unique_val_freq = {}
-            n = df.shape[0]
-            for c in df.columns:
-                self.__unique_val_freq[c] = df[c].value_counts().reset_index().rename(
-                    columns={'index':c, c:'freq_'+c}
-                )
-
+            self.__num_unique_vals = {
+                c: len(df[c].unique()) for c in df.columns
+                if c not in [config.id_col, config.label_col]
+            }
             self.__one_hot_cols = []
             self.__freq_cols = []
             self.__drop_cols = []
             self.__reorder_cols = []
             for c in df.columns:
                 if c not in [config.id_col, config.label_col]:
-                    if len(self.__unique_vals[c]) < 20:
-                        self.__freq_cols.append(c)
-                    if len(self.__unique_vals[c]) > 2 and len(self.__unique_vals[c]) < 7: 
+                    if self.__num_unique_vals[c] > 2 and self.__num_unique_vals[c] < 7:
                         self.__one_hot_cols.append(c)
                         if c.endswith(('bin', 'cat')):
                             self.__drop_cols.append(c)
                     if c.endswith('cat'):
-                        if len(self.__unique_vals[c]) > 7 and len(self.__unique_vals[c]) < 20:
+                        if self.__num_unique_vals[c] > 7 and self.__num_unique_vals[c] < 20:
+                            self.__drop_cols.append(c)
                             self.__reorder_cols.append(c)
+                        elif self.__num_unique_vals[c] >= 20:
                             self.__drop_cols.append(c)
-                        elif len(self.__unique_vals[c]) >= 20:
-                            self.__drop_cols.append(c)
+                    '''
+                    if not c.endswith(('cat', 'bin')):
+                        if self.__num_unique_vals[c] < 5:
+                            self.__reorder_cols.append(c)
+                    '''
 
- #       for c in self.__freq_cols:
- #           self.__freq(df, c)
         for c in self.__one_hot_cols:
             self.__one_hot(df, c)
         for c in self.__reorder_cols:
@@ -129,7 +123,7 @@ class FeatureExtractor():
                     self.__mean_range(df, c)
                     self.__median_range(df, c)
 
-                if c.startswith('ps_') and (not c.endswith(('cat', 'bin'))):
+                if c.startswith('ps_') and (not c.endswith(('cat', 'bin'))): 
                     self.__mean_range(df, c)
                     self.__median_range(df, c)
 
