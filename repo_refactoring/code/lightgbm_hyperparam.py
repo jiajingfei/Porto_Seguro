@@ -42,7 +42,7 @@ def optimal_param():
         'max_depth': 5,
         'n_estimators': 2000,
         'n_jobs': 4,
-        'n_splits': 20,
+        'n_splits': 5,
         'num_leaves': 32,
         'objective': 'binary',
         'random_state': 1025,

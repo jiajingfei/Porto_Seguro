@@ -9,8 +9,8 @@ class Ensembler():
         if key is None:
             _, filename = os.path.split(filename_with_dir)
             key = filename.replace('.csv', '')
-        df = pd.read_csv(filename)
-        return pd.rename(column = {config.label_col: key})
+        df = pd.read_csv(filename_with_dir)
+        return df.rename(columns = {config.label_col: key})
 
     @staticmethod
     def load_directory(directory, mode):
