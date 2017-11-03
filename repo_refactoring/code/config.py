@@ -31,6 +31,31 @@ data_raw_dir = 'raw_data'
 data_sanity_dir = 'sanity_data'
 
 ##################################################################
+# feature configs
+##################################################################
+__feature_base_dir = os.path.join(this_path, '../features/')
+
+def get_feature_dir(dir_name, fold_num=None):
+    directory = os.path.join(__feature_base_dir, dir_name)
+    if fold_num is None:
+        return directory
+    else:
+        return os.path.join(directory, 'fold{}'.format(fold_num))
+
+def get_feature_train_file(dir_name, fold_num):
+    return os.path.join(get_feature_dir(dir_name, fold_num), 'train.pickle')
+
+def get_feature_valid_file(dir_name, fold_num):
+    return os.path.join(get_feature_dir(dir_name, fold_num), 'valid.pickle')
+
+def get_feature_test_file(dir_name, fold_num):
+    return os.path.join(get_feature_dir(dir_name, fold_num), 'test.pickle')
+
+def get_num_folds(dir_name):
+    folds = [d for d in os.listdir(get_feature_dir(dir_name)) if d.startswith('fold')]
+    return len(folds)
+
+##################################################################
 # prediction configs 
 ##################################################################
 __pred_base_dir = os.path.join(this_path, '../pred/')
