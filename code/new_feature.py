@@ -201,30 +201,35 @@ class FeatureExtractor():
                     _ = f.get_features(df_test, actions)
 
             save_to_file(
-                config.get_feature_train_file(feature_dir, fold_num),
+                config.get_feature_file(feature_dir, fold_num, 'train'),
                 lambda filename: df_train[
                     [config.id_col, config.label_col] + features
                 ].to_pickle(filename)
             )
             save_to_file(
-                config.get_feature_valid_file(feature_dir, fold_num),
+                config.get_feature_file(feature_dir, fold_num, 'valid'),
                 lambda filename: df_valid[
                     [config.id_col, config.label_col] + features
                 ].to_pickle(filename)
             )
             save_to_file(
-                config.get_feature_test_file(feature_dir, fold_num),
+                config.get_feature_file(feature_dir, fold_num, 'test'),
                 lambda filename: df_test[[config.id_col] + features].to_pickle(filename)
             )
-            if test_target is None:
+            if test_target is not None:
+                save_to_file(
+                    config.get_feature_file(feature_dir, fold_num, 'train'),
+                    lambda filename: test_target.to_pickle(filename)
+                )
 
             print '{} fold {} is finished'.format(feature_dir, fold_num)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='extract all features and save to file')
-    parser.add_argument('--data-dir', '-d', dest='data_dir', type=sir, help='data dir')
-    parser.add_argument('--feature-dir', '-d', dest='feature_dir', type=str, help='feature dir')
-    parser.add_argument('--n-splits', '-n', dest='n_splits', type=int, help='num of splits')
-    parser.add_argument('--seed', '-s', dest='random_state', type=int, help='random state')
+    parser.add_argument('--data-dir', '-d', dest='data_dir', type=str, required=True)
+    parser.add_argument('--feature-dir', '-f', dest='feature_dir', type=str, required=True)
+    parser.add_argument('--n-splits', '-n', dest='n_splits', type=int, default=5)
+    parser.add_argument('--random-seed', '-r', dest='seed', type=int, required=True)
+    args = parser.parse_args()
     fe = FeatureExtractor()
-    fe.freeze_all_features_for_kfold(data_dir, n_splits, random_state, feature_dir)
+    fe.freeze_all_features_for_kfold(args.data_dir, args.n_splits, args.seed, args.feature_dir)

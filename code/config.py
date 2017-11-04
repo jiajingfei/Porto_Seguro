@@ -16,7 +16,7 @@ def get_data_dir(dir_name):
     return os.path.join(__data_base_dir, dir_name)
 
 def get_data_file(dir_name, mode):
-    data_dir = get_feature_dir(dir_name)
+    data_dir = get_data_dir(dir_name)
     filename_dict = {
         'train': 'train.csv',
         'test': 'test.csv',
