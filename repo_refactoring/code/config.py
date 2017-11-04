@@ -15,17 +15,19 @@ __data_base_dir = os.path.join(this_path, '../data/')
 def get_data_dir(dir_name):
     return os.path.join(__data_base_dir, dir_name)
 
-def data_train_file(dir_name):
-    return os.path.join(__data_base_dir, dir_name, 'train.csv')
-
-def data_test_file(dir_name):
-    return os.path.join(__data_base_dir, dir_name, 'test.csv')
-
-def data_test_target_file(dir_name):
-    return os.path.join(__data_base_dir, dir_name, '.test_target.csv')
-
-def data_readme_file(dir_name):
-    return os.path.join(__data_base_dir, dir_name, 'readme.txt')
+def get_data_file(dir_name, mode):
+    data_dir = get_feature_dir(dir_name)
+    filename_dict = {
+        'train': 'train.csv',
+        'test': 'test.csv',
+        'test_label': '.test_target.pickle',
+        'readme': 'readme.txt'
+    }
+    filename = filename_dict.get(mode)
+    if filename is None:
+        raise Exception('Wrong mode {}, mode must be in {}'.format(mode, filename_dict.keys()))
+    else:
+        return os.path.join(data_dir, filename)
 
 data_raw_dir = 'raw_data'
 data_sanity_dir = 'sanity_data'
@@ -42,21 +44,29 @@ def get_feature_dir(dir_name, fold_num=None):
     else:
         return os.path.join(directory, 'fold{}'.format(fold_num))
 
-def get_feature_train_file(dir_name, fold_num):
-    return os.path.join(get_feature_dir(dir_name, fold_num), 'train.pickle')
-
-def get_feature_valid_file(dir_name, fold_num):
-    return os.path.join(get_feature_dir(dir_name, fold_num), 'valid.pickle')
-
-def get_feature_test_file(dir_name, fold_num):
-    return os.path.join(get_feature_dir(dir_name, fold_num), 'test.pickle')
+def get_feature_file(dir_name, fold_num, mode):
+    feature_dir = get_feature_dir(dir_name, fold_num)
+    filename_dict = {
+        'train': 'train.pickle',
+        'valid': 'valid.pickle',
+        'test': 'test.pickle',
+        'test_label': '.test_target.pickle',
+    }
+    filename = filename_dict.get(mode)
+    if filename is None:
+        raise Exception('wrong mode {}, mode must be train|test|valid|test_label')
+    else:
+        return os.path.join(feature_dir, filename)
 
 def get_num_folds(dir_name):
     folds = [d for d in os.listdir(get_feature_dir(dir_name)) if d.startswith('fold')]
     return len(folds)
 
+def get_orig_features(df):
+    return [c for c in df.columns if c.startswith('ps_')]
+
 ##################################################################
-# prediction configs 
+# prediction configs
 ##################################################################
 __pred_base_dir = os.path.join(this_path, '../pred/')
 

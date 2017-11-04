@@ -16,10 +16,10 @@ data_dir = 'sanity_data'
 
 # is this the best way to get feature list?
 training_data = Training_data(config.data_raw_dir)
-if not os.path.exists(config.data_train_file(data_dir)):
+if not os.path.exists(config.get_data_file(data_dir, 'train')):
     training_data.complete_data_dir_with_ids('sanity_data')
 
-df = pd.read_csv(config.data_train_file(data_dir))
+df = pd.read_csv(config.get_data_file(data_dir, 'train'))
 
 feature = df.columns.tolist()
 to_remove = ['id','target']

@@ -1,11 +1,12 @@
 import os
+import gc
 import getpass
 import datetime as dt
 import pandas as pd
 from abc import ABCMeta, abstractmethod
 from data_type import Training_data as T
 from data_type import Prediction as P
-from feature import FeatureExtractor as F
+from feature import Feature as F
 from utils import gini_normalized, unique_identifier, save_to_file, remove_id_and_label
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from catboost import CatBoostClassifier
@@ -27,66 +28,35 @@ class Model():
 
     __metaclass__ = ABCMeta
 
-    '''
-    data_dir: the directory name of the data, data is not allowed to passed in by dataframe
-    param: a dictionary. It must contain 'random_state' if in n_splits != None, its other
-    values may depend on the model.
-    '''
-    def __init__(self, data_dir, param, identifier=None):
+    # Default is using raw features
+    def __init__(self, feature_dir, param, identifier=None, actions_dict={}):
         self._identifier = unique_identifier() if identifier is None else identifier
-        self._dir = data_dir
-        self._training_data = T(data_dir)
-        self._df_test = pd.read_csv(config.get_data_file(self._dir, 'test'))
+        self._actions_dict = actions_dict
+        self._feature_dir = feature_dir
         self._param = param
         return None
 
     def _save_param(self, filename):
+        all_param = {
+            'actions': self._actions_dict,
+            'param': self._param,
+            'feature_dir': self._feature_dir
+        }
         pickle.dump(self._param, open(filename, 'wb'))
 
-    '''
-    We may need df_test to determine whether to stop, I can imagine for some classifier,
-    we don't need df_valie (for example, linear regression), the users should check
-    df_valid=None by themselves for this case
-    '''
     @abstractmethod
     def _train(self, df_features_train, df_features_valid):
         raise Exception('Unimplemented in abstract class')
 
     @abstractmethod
-    # df_features is features dataframe, it may contain or not contain label col
     def _pred(self, df_features):
         raise Exception('Unimplemented in abstract class')
 
-    '''
-    input data_dir should be a standard datadir
-    '''
     def train_predict_eval_and_log(self):
-        '''
-        Main worker function.
-        Here we will do the k-fold CV on the training data
-        and save the results and the parameters to respective log files
-
-        The number of folds, n_splits, should be defined in self._params
-
-        Input
-        ---------
-        Nothing
-
-        Return
-        ---------
-        Nothing, save / modify 2 log files.
-        '''
-
         time  = dt.datetime.now()
-        n_splits = self._param.get('n_splits')
-        if n_splits is None:
-            random_state = None
-        else:
-            random_state = self._param['random_state']
-
         def to_save_fn(train_gini, valid_gini, test_gini, fold):
             header = ','.join([
-                'data_dir',
+                'feature_dir',
                 'user',
                 'time',
                 'identifier',
@@ -97,7 +67,7 @@ class Model():
                 'fold_str'
             ])
             new_row = [
-                self._dir,
+                self._feature_dir,
                 getpass.getuser(),
                 time,
                 self._identifier,
@@ -117,7 +87,6 @@ class Model():
                 f.close()
             return write_log
 
-        # df_features here must be None or a features dataframe with label col
         def get_gini(df_features):
             if df_features is None:
                 return None
@@ -127,26 +96,37 @@ class Model():
                     self._pred(df_features)[config.label_col]
                 )
 
-        training_data = T(self._dir)
-        self._sum_pred = 0
-
         param_file = config.model_filename(
-            self._dir,
+            self._feature_dir,
             filename='param',
             identifier=self._identifier
         )
-        # k fold CV
-        for i, (df_train, df_valid) in enumerate(training_data.kfold(n_splits, random_state)):
-            df_features_train, df_features_valid, df_features_test = F().convert(
-                df_train, df_valid, self._df_test, self._param.get('excluded_features')
-            )
-            self._train(df_features_train, df_features_valid)
+
+        fold_num = config.get_num_folds(self._feature_dir)
+        def prepare_data(df_file):
+            df = pd.read_pickle(df_file)
+            orig_features = config.get_orig_features(df)
+            cols = [config.id_col]
+            if config.label_col in df.columns:
+                cols += [config.label_col]
+            for f in orig_features:
+                actions = self._actions_dict.get(f, [])
+                f = F(f)
+                cols += f.get_features(df, actions)
+            df = df[cols].copy()
+            gc.collect()
+            return df
+
+        for i range(fold_num):
+            df_train = prepare_data(config.get_feature_train_file(self._feature_dir, i))
+            df_valid = prepare_data(config.get_feature_valid_file(self._feature_dir, i))
+            df_test = prepare_data(config.get_feature_test_file(self._feature_dir, i))
+            self._train(df_train, df_valid)
             fold = 'fold{}'.format(i)
-            if df_features_valid is not None:
-                valid_pred = self._pred(df_features_valid)
-                P.save(valid_pred, self._dir, '{}-valid-fold{}'.format(self._identifier, i))
-            test_pred = self._pred(df_features_test)
-            P.save(test_pred, self._dir, '{}-test-fold{}'.format(self._identifier, i))
+            valid_pred = self._pred(df_valid)
+            P.save(valid_pred, self._feature_dir, '{}-valid-fold{}'.format(self._identifier, i))
+            test_pred = self._pred(df_test)
+            P.save(test_pred, self._feature_dir, '{}-test-fold{}'.format(self._identifier, i))
 
             test_gini = P.eval(test_pred, self._dir)
             self._sum_pred += test_pred[config.label_col]
