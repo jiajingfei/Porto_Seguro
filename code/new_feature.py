@@ -126,11 +126,6 @@ class Feature(object):
         if len(actions) != len(set(actions)):
             raise Exception('found duplicate actions')
 
-        all_available_actions = set(self.all_actions_without_dropping())
-        for action in actions:
-            if action != Action.dropping and action not in all_available_actions:
-                raise Exception('{} not allowed for {}'.format(action, self._name))
-
         self._features = [self._name]
         action_dict = {
             Action.dropping: self._dropping,
@@ -175,9 +170,10 @@ class FeatureExtractor():
     def freeze_all_features_for_kfold(self, data_dir, n_splits, random_state, feature_dir):
         train_data = T(data_dir)
         test = pd.read_csv(config.get_data_file(data_dir, 'test'))
-        test_target_file = config.get_data_file(data_dir, 'test_label')
-        if os.path.exists(test_target_file):
-            test_target = pd.read_csv(test_target_file)
+        data_test_target_file = config.get_data_file(data_dir, 'test_label')
+        print data_test_target_file
+        if os.path.exists(data_test_target_file):
+            test_target = pd.read_csv(data_test_target_file)
         else:
             test_target = None
         def preprocess(df):
@@ -216,13 +212,13 @@ class FeatureExtractor():
                 config.get_feature_file(feature_dir, fold_num, 'test'),
                 lambda filename: df_test[[config.id_col] + features].to_pickle(filename)
             )
-            if test_target is not None:
-                save_to_file(
-                    config.get_feature_file(feature_dir, fold_num, 'train'),
-                    lambda filename: test_target.to_pickle(filename)
-                )
-
             print '{} fold {} is finished'.format(feature_dir, fold_num)
+
+        if test_target is not None:
+            save_to_file(
+                config.get_feature_file(feature_dir, None, 'test_label'),
+                lambda filename: test_target.to_pickle(filename)
+            )
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='extract all features and save to file')

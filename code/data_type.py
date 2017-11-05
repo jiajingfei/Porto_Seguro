@@ -122,15 +122,19 @@ class Training_data(object):
 class Prediction(object):
 
     @staticmethod
-    def save(df, data_dir, filename):
-        save_df_to_file(df, config.pred_filename(data_dir, filename), overwrite=False)
+    def save(df, directory, filename):
+        save_df_to_file(df, config.pred_filename(directory, filename), overwrite=False)
 
     @staticmethod
-    def eval(df, data_dir):
-        filename = config.get_data_file(data_dir, 'test_label')
+    def eval(df, filename):
         if not os.path.isfile(filename):
             return None
-        test_target = pd.read_csv(filename)
+        if filename.endswith('.csv'):
+            test_target = pd.read_csv(filename)
+        elif filename.endswith('.pickle'):
+            test_target = pd.read_pickle(filename)
+        else:
+            raise Exception('wrong filename {}'.format(filename))
         test_target = test_target.sort_values(config.id_col).reset_index(drop=True)
         df = df.sort_values(config.id_col).reset_index(drop=True)
         if not test_target[config.id_col].equals(df[config.id_col]):

@@ -6,7 +6,7 @@ import pandas as pd
 from abc import ABCMeta, abstractmethod
 from data_type import Training_data as T
 from data_type import Prediction as P
-from feature import Feature as F
+from new_feature import Feature as F
 from utils import gini_normalized, unique_identifier, save_to_file, remove_id_and_label
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from catboost import CatBoostClassifier
@@ -45,11 +45,11 @@ class Model():
         pickle.dump(self._param, open(filename, 'wb'))
 
     @abstractmethod
-    def _train(self, df_features_train, df_features_valid):
+    def _train(self, df_train, df_valid):
         raise Exception('Unimplemented in abstract class')
 
     @abstractmethod
-    def _pred(self, df_features):
+    def _pred(self, df):
         raise Exception('Unimplemented in abstract class')
 
     def train_predict_eval_and_log(self):
@@ -87,13 +87,13 @@ class Model():
                 f.close()
             return write_log
 
-        def get_gini(df_features):
-            if df_features is None:
+        def get_gini(df):
+            if df is None:
                 return None
             else:
                 return gini_normalized(
-                    df_features[config.label_col],
-                    self._pred(df_features)[config.label_col]
+                    df[config.label_col],
+                    self._pred(df)[config.label_col]
                 )
 
         param_file = config.model_filename(
@@ -117,10 +117,11 @@ class Model():
             gc.collect()
             return df
 
-        for i range(fold_num):
-            df_train = prepare_data(config.get_feature_train_file(self._feature_dir, i))
-            df_valid = prepare_data(config.get_feature_valid_file(self._feature_dir, i))
-            df_test = prepare_data(config.get_feature_test_file(self._feature_dir, i))
+        sum_pred = 0
+        for i in range(fold_num):
+            df_train = prepare_data(config.get_feature_file(self._feature_dir, i, 'train'))
+            df_valid = prepare_data(config.get_feature_file(self._feature_dir, i, 'valid'))
+            df_test = prepare_data(config.get_feature_file(self._feature_dir, i, 'test'))
             self._train(df_train, df_valid)
             fold = 'fold{}'.format(i)
             valid_pred = self._pred(df_valid)
@@ -128,30 +129,27 @@ class Model():
             test_pred = self._pred(df_test)
             P.save(test_pred, self._feature_dir, '{}-test-fold{}'.format(self._identifier, i))
 
-            test_gini = P.eval(test_pred, self._dir)
-            self._sum_pred += test_pred[config.label_col]
+            target_file = config.get_feature_file(self._feature_dir, None, 'test_label')
+            test_gini = P.eval(test_pred, target_file)
+            sum_pred += test_pred[config.label_col]
 
-            if n_splits is not None:
-                train_gini = get_gini(df_features_train)
-                valid_gini = get_gini(df_features_valid)
-                save_to_file(
-                    filename=config.model_log_file(self._dir),
-                    save_fn=to_save_fn(train_gini, valid_gini, test_gini, fold),
-                    allow_existing=True
-                )
+            train_gini = get_gini(df_train)
+            valid_gini = get_gini(df_valid)
+            save_to_file(
+                filename=config.model_log_file(self._feature_dir),
+                save_fn=to_save_fn(train_gini, valid_gini, test_gini, fold),
+                allow_existing=True
+            )
 
         sum_pred = pd.DataFrame(data={
-            config.id_col: self._df_test[config.id_col],
-            config.label_col: self._sum_pred
+            config.id_col: df_test[config.id_col],
+            config.label_col: sum_pred
         })
-        if n_splits is None:
-            fold = 'all'
-        else:
-            fold = 'sum'
-        P.save(sum_pred, self._dir, '{}-test-{}'.format(self._identifier, fold))
-        test_gini = P.eval(sum_pred, self._dir)
+        P.save(sum_pred, self._feature_dir, '{}-test-{}'.format(self._identifier, 'sum'))
+        target_file = config.get_feature_file(self._feature_dir, None, 'test_label')
+        test_gini = P.eval(sum_pred, target_file)
         save_to_file(
-            filename=config.model_log_file(self._dir),
+            filename=config.model_log_file(self._feature_dir),
             save_fn=to_save_fn(None, None, test_gini, fold),
             allow_existing=True
         )
@@ -163,11 +161,11 @@ class Model():
 
 class Toy_model(Model):
 
-    def _train(self, df_features_train, df_features_valid):
+    def _train(self, df_train, df_valid):
         return None
 
-    def _pred(self, df_features):
-        ids = df_features[config.id_col]
+    def _pred(self, df):
+        ids = df[config.id_col]
         return pd.DataFrame(data={
             config.id_col: ids,
             config.label_col: ids%5
@@ -175,13 +173,13 @@ class Toy_model(Model):
 
 class RandomForest(Model):
 
-    def _train(self, df_features_train, df_features_valid):
+    def _train(self, df_train, df_valid):
         # train a simple random forest (RF)
         # unlike xgboost, 
         # for RF, we don't need a validation set for training
         # prepare the data
-        y = df_features_train[config.label_col]
-        X = remove_id_and_label(df_features_train)
+        y = df_train[config.label_col]
+        X = remove_id_and_label(df_train)
         # prepare the model
         model_param = {
             k : v for (k, v) in self._param.items()
@@ -192,9 +190,9 @@ class RandomForest(Model):
         self.__clf.fit(X, y)
         return None
 
-    def _pred(self, df_features):
-        ids = df_features[config.id_col]
-        features = remove_id_and_label(df_features)
+    def _pred(self, df):
+        ids = df[config.id_col]
+        features = remove_id_and_label(df)
         y_proba = self.__clf.predict_proba(features)[:,1]  # the proba of being 1
         return pd.DataFrame(data={
             config.id_col: ids,
@@ -222,16 +220,16 @@ class XGBoost_CV(Model):
             'random_state': 456,
         }
 
-    def _train(self, df_features_train, df_features_valid):
+    def _train(self, df_train, df_valid):
         assert (self._param['n_splits'] > 1)
         def gini_xgb(preds, dtrain):
             labels = dtrain.get_label()
             gini_score = gini_normalized(labels, preds)
             return [('gini', gini_score)]
-        train_X = remove_id_and_label(df_features_train)#.values
-        valid_X = remove_id_and_label(df_features_valid)#.values
-        train_y = df_features_train[config.label_col]#.values
-        valid_y = df_features_valid[config.label_col]#.values
+        train_X = remove_id_and_label(df_train)#.values
+        valid_X = remove_id_and_label(df_valid)#.values
+        train_y = df_train[config.label_col]#.values
+        valid_y = df_valid[config.label_col]#.values
         d_train = xgb.DMatrix(train_X, train_y)
         d_valid = xgb.DMatrix(valid_X, valid_y)
         self._model = xgb.train(
@@ -245,9 +243,9 @@ class XGBoost_CV(Model):
             early_stopping_rounds=100
         )
 
-    def _pred(self, df_features):
-        ids = df_features[config.id_col]
-        d_test = xgb.DMatrix(remove_id_and_label(df_features))
+    def _pred(self, df):
+        ids = df[config.id_col]
+        d_test = xgb.DMatrix(remove_id_and_label(df))
         return pd.DataFrame(data = {
             config.id_col: ids,
             config.label_col: self._model.predict_proba(d_test)
@@ -268,19 +266,19 @@ class Sklearn_gradientboosting(Model):
             'min_impurity_decrease': 0.001
         }
 
-    def _train(self, df_features_train, df_features_valid):
+    def _train(self, df_train, df_valid):
         assert (self._param['n_splits'] > 1)
         param = {
             k:v for (k, v) in self._param.items() if k not in ['features', 'n_splits']
         }
         self._model = GradientBoostingClassifier(**param)
-        train_X = remove_id_and_label(df_features_train)
-        train_y = df_features_train[config.label_col]
+        train_X = remove_id_and_label(df_train)
+        train_y = df_train[config.label_col]
         self._model.fit(train_X, train_y)
 
-    def _pred(self, df_features):
-        ids = df_features[config.id_col]
-        features = remove_id_and_label(df_features)
+    def _pred(self, df):
+        ids = df[config.id_col]
+        features = remove_id_and_label(df)
         return pd.DataFrame(data={
             config.id_col: ids,
             config.label_col: self._model.predict_proba(features)[:, 1]
@@ -302,17 +300,17 @@ class Catboost_CV(Model):
             'optimize_rounds': True
         }
 
-    def _train(self, df_features_train, df_features_valid):
+    def _train(self, df_train, df_valid):
         assert (self._param['n_splits'] > 1)
         param = {
             k:v for (k, v) in self._param.items()
             if k not in ['features', 'n_splits', 'random_state', 'optimize_rounds']
         }
         model = CatBoostClassifier(**param)
-        train_X = remove_id_and_label(df_features_train)
-        train_y = df_features_train[config.label_col]
-        valid_X = remove_id_and_label(df_features_valid)
-        valid_y = df_features_valid[config.label_col]
+        train_X = remove_id_and_label(df_train)
+        train_y = df_train[config.label_col]
+        valid_X = remove_id_and_label(df_valid)
+        valid_y = df_valid[config.label_col]
         self._fit_model = model.fit(
             train_X,
             train_y,
@@ -321,9 +319,9 @@ class Catboost_CV(Model):
         )
         print( "  N trees = ", model.tree_count_ )
 
-    def _pred(self, df_features):
-        ids = df_features[config.id_col]
-        features = remove_id_and_label(df_features)
+    def _pred(self, df):
+        ids = df[config.id_col]
+        features = remove_id_and_label(df)
         return pd.DataFrame(data={
             config.id_col: ids,
             config.label_col: self._fit_model.predict_proba(features)[:, 1]
@@ -345,7 +343,7 @@ class Lightgbm_CV(Model):
             'random_state': 1025,
         }
 
-    def _train(self, df_features_train, df_features_valid):
+    def _train(self, df_train, df_valid):
         assert (self._param['n_splits'] > 1)
 
         def gini_lgb(preds, dtrain):
@@ -357,10 +355,10 @@ class Lightgbm_CV(Model):
             k:v for (k, v) in self._param.items() if
             k not in ['features', 'n_splits', 'random_state', 'excluded_features']
         }
-        train_X = remove_id_and_label(df_features_train)
-        valid_X = remove_id_and_label(df_features_valid)
-        train_y = df_features_train[config.label_col]
-        valid_y = df_features_valid[config.label_col]
+        train_X = remove_id_and_label(df_train)
+        valid_X = remove_id_and_label(df_valid)
+        train_y = df_train[config.label_col]
+        valid_y = df_valid[config.label_col]
 
         self._model = lgb.LGBMClassifier(**param)
         self._model.fit(
@@ -371,9 +369,9 @@ class Lightgbm_CV(Model):
             eval_metric='auc',
             verbose=True)
 
-    def _pred(self, df_features):
-        ids = df_features[config.id_col]
-        d_test = remove_id_and_label(df_features)
+    def _pred(self, df):
+        ids = df[config.id_col]
+        d_test = remove_id_and_label(df)
         return pd.DataFrame(data={
             config.id_col: ids,
             config.label_col: self._model.predict_proba(d_test)[:,1]

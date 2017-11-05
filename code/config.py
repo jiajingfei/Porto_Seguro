@@ -20,7 +20,7 @@ def get_data_file(dir_name, mode):
     filename_dict = {
         'train': 'train.csv',
         'test': 'test.csv',
-        'test_label': '.test_target.pickle',
+        'test_label': '.test_target.csv',
         'readme': 'readme.txt'
     }
     filename = filename_dict.get(mode)
@@ -45,6 +45,8 @@ def get_feature_dir(dir_name, fold_num=None):
         return os.path.join(directory, 'fold{}'.format(fold_num))
 
 def get_feature_file(dir_name, fold_num, mode):
+    if mode == 'test_label':
+        fold_num = None
     feature_dir = get_feature_dir(dir_name, fold_num)
     filename_dict = {
         'train': 'train.pickle',
