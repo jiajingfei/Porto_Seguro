@@ -11,5 +11,5 @@ Thumbs.db
 *.tfevents
 *.pyc
 *~
-/repo_refactoring/code/debug/*
+/code/debug/*
 *.pickle
