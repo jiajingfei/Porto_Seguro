@@ -1,5 +1,6 @@
 .DS_Store
 .DS_Store?
+*.ipynb
 ._*
 .Trashes
 Thumbs.db
@@ -11,5 +12,5 @@ Thumbs.db
 *.tfevents
 *.pyc
 *~
-/repo_refactoring/code/debug/*
+/code/debug/*
 *.pickle

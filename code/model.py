@@ -36,7 +36,7 @@ class Model():
         self._identifier = unique_identifier() if identifier is None else identifier
         self._dir = data_dir
         self._training_data = T(data_dir)
-        self._df_test = pd.read_csv(config.data_test_file(self._dir))
+        self._df_test = pd.read_csv(config.get_data_file(self._dir, 'test'))
         self._param = param
         return None
 
@@ -148,7 +148,8 @@ class Model():
             test_pred = self._pred(df_features_test)
             P.save(test_pred, self._dir, '{}-test-fold{}'.format(self._identifier, i))
 
-            test_gini = P.eval(test_pred, self._dir)
+            filename = config.get_data_file(self._dir, 'test_label')
+            test_gini = P.eval(test_pred, filename)
             self._sum_pred += test_pred[config.label_col]
 
             if n_splits is not None:
@@ -169,7 +170,8 @@ class Model():
         else:
             fold = 'sum'
         P.save(sum_pred, self._dir, '{}-test-{}'.format(self._identifier, fold))
-        test_gini = P.eval(sum_pred, self._dir)
+        filename = config.get_data_file(self._dir, 'test_label')
+        test_gini = P.eval(sum_pred, filename)
         save_to_file(
             filename=config.model_log_file(self._dir),
             save_fn=to_save_fn(None, None, test_gini, fold),

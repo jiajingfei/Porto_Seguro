@@ -12,15 +12,15 @@ import config
 
 class Training_data(object):
     def __init__(self, data_dir):
-        self._train = pd.read_csv(config.data_train_file(data_dir))
+        self._train = pd.read_csv(config.get_data_file(data_dir, 'train'))
 
     def __output_generated_data(self, train, test, output_data_dir):
         if not os.path.exists(config.get_data_dir(output_data_dir)):
             os.system('mkdir -p {}'.format(config.get_data_dir(output_data_dir)))
         test_target = test[[config.id_col, config.label_col]]
         del test[config.label_col]
-        train_file = config.data_train_file(output_data_dir)
-        test_file = config.data_test_file(output_data_dir)
+        train_file = config.get_data_file(output_data_dir, 'train')
+        test_file = config.get_data_file(output_data_dir, 'test')
         if os.path.exists(train_file):
             raise Exception('{} already exists'.format(train_file))
         if os.path.exists(test_file):
@@ -29,8 +29,8 @@ class Training_data(object):
         test.to_csv(test_file, index=False)
         train[config.id_col].to_csv(train_file+'.id', index=False)
         test[config.id_col].to_csv(test_file+'.id', index=False)
-        test_target.to_csv(config.data_test_target_file(output_data_dir), index=False)
-        with open(config.data_readme_file(output_data_dir), 'w') as f:
+        test_target.to_csv(config.get_data_file(output_data_dir, 'test_label'), index=False)
+        with open(config.get_data_file(output_data_dir, 'readme'), 'w') as f:
             readme_lines = [
                 'this directory is for generated training data and validation data\n',
                 'it should contain a train file with labels and a test file without labels\n',
@@ -90,8 +90,8 @@ class Training_data(object):
         if data_dir == 'raw_data':
             raise Exception('Should never complete the raw data')
 
-        ids_train_file = config.data_train_file(data_dir) + '.id'
-        ids_test_file = config.data_test_file(data_dir) + '.id'
+        ids_train_file = config.get_data_file(data_dir, 'train') + '.id'
+        ids_test_file = config.get_data_file(data_dir, 'test') + '.id'
         if not os.path.exists(config.get_data_dir(data_dir)):
             raise Exception('The data dir {} does not exist.'.format(data_dir))
 
@@ -122,15 +122,19 @@ class Training_data(object):
 class Prediction(object):
 
     @staticmethod
-    def save(df, data_dir, filename):
-        save_df_to_file(df, config.pred_filename(data_dir, filename), overwrite=False)
+    def save(df, directory, filename):
+        save_df_to_file(df, config.pred_filename(directory, filename), overwrite=False)
 
     @staticmethod
-    def eval(df, data_dir):
-        filename = config.data_test_target_file(data_dir)
+    def eval(df, filename):
         if not os.path.isfile(filename):
             return None
-        test_target = pd.read_csv(filename)
+        if filename.endswith('.csv'):
+            test_target = pd.read_csv(filename)
+        elif filename.endswith('.pickle'):
+            test_target = pd.read_pickle(filename)
+        else:
+            raise Exception('wrong filename {}'.format(filename))
         test_target = test_target.sort_values(config.id_col).reset_index(drop=True)
         df = df.sort_values(config.id_col).reset_index(drop=True)
         if not test_target[config.id_col].equals(df[config.id_col]):
@@ -148,11 +152,11 @@ def test_predcition():
     if not os.path.exists(config.get_data_dir(config.data_sanity_dir)):
         training_data = Training_data(config.data_raw_dir)
         training_data.output_small_data_for_sanity_check(config.data_sanity_dir)
-    df = pd.read_csv(config.data_test_target_file(config.data_sanity_dir))
+    df = pd.read_csv(config.get_data_file(config.data_sanity_dir, 'test_label'))
     normalized_gini = prediction.eval(df, config.data_sanity_dir)
     assert (np.isclose(normalized_gini, 1))
 
-if __name__ == '__main__' and not callable(globals().get("get_ipython", None)):
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='split training data into training and validation dataset')
     parser.add_argument(
         '--mode',
