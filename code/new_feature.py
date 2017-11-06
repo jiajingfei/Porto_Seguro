@@ -20,6 +20,14 @@ class Action(object):
     reorder_above_mean = 'ro_mean'
     reorder_above_median = 'ro_med'
 
+class Action_type(object):
+    dropping = 'dropping'
+    raw = 'raw'
+    # one hot > reorder > raw
+    prefer_one_hot = 'one_hot'
+    # reorder > one hot > raw
+    prefer_reorder = 'reorder'
+
 class Feature(object):
 
     def __init__(self, name):
@@ -101,31 +109,65 @@ class Feature(object):
             lambda df: (df[self._name] > self._median).astype(int)
         )
 
+    def _is_continuous(self):
+        return self._type == Feature_type.continuous
+
+    def _allow_one_hot(self):
+        return self._num_unique_values > 2 and self._num_unique_values < 7
+
+    def _allow_reorder(self):
+        return self._type != Feature_type.continuous or self._num_unique_values < 7
+
     def all_actions_without_dropping(self):
         actions = []
-        # For between unique values between 3 and 6, we consider one hot encoding
-        if self._num_unique_values > 2 and self._num_unique_values < 7:
+        if self._allow_one_hot():
             actions.append(Action.one_hot)
 
-        # For categorical and binary features or continuous features with fewer
-        # than 7 unique values, use reorder actions
-        if self._type != Feature_type.continuous or self._num_unique_values < 7:
+        if self._allow_reorder():
             actions.append(Action.reorder)
             actions.append(Action.reorder_above_mean)
             actions.append(Action.reorder_above_median)
 
-        # For continuous features, consider mean and median actions
-        if self._type == Feature_type.continuous:
+        if self._is_continuous():
             actions.append(Action.above_mean)
             actions.append(Action.above_median)
-
         return actions
 
-    # This function will modify df
-    def get_features(self, df, actions):
-        if len(actions) != len(set(actions)):
-            raise Exception('found duplicate actions')
+    def _generate_actions(self, action_type):
+        if action_type == Action_type.dropping:
+            return [Action.dropping]
+        elif action_type == Action_type.raw:
+            if self._is_continuous():
+                return [Action.above_mean, Action.above_median]
+            else:
+                return []
+        elif action_type == Action_type.prefer_one_hot:
+            if self._allow_one_hot():
+                return [Action.one_hot, Action.dropping]
+            elif self._allow_reorder():
+                return [
+                    Action.reorder,
+                    Action.reorder_above_mean,
+                    Action.reorder_above_median,
+                    Action.dropping
+                ]
+            else:
+                return self.generate_actions(Action_type.raw)
+        elif action_type == Action_type.prefer_reorder:
+            if self._allow_reorder():
+                return [
+                    Action.reorder,
+                    Action.reorder_above_mean,
+                    Action.reorder_above_median,
+                    Action.dropping
+                ]
+            else:
+                return self.generate_actions(Action_type.prefer_one_hot)
+        else:
+            raise Exception('Wrong action type {}')
 
+    # This function will modify df
+    def get_features(self, df, action_type):
         self._features = [self._name]
         action_dict = {
             Action.dropping: self._dropping,
@@ -136,7 +178,7 @@ class Feature(object):
             Action.reorder_above_mean: self._reorder_above_mean,
             Action.reorder_above_median: self._reorder_above_median
         }
-        for action in actions:
+        for action in self._generate_actions(action_type):
             action_dict[action](df)
         return self._features
 

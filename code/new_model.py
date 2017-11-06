@@ -29,16 +29,16 @@ class Model():
     __metaclass__ = ABCMeta
 
     # Default is using raw features
-    def __init__(self, feature_dir, param, identifier=None, actions_dict={}):
+    def __init__(self, feature_dir, param, get_action_type, identifier=None):
         self._identifier = unique_identifier() if identifier is None else identifier
-        self._actions_dict = actions_dict
         self._feature_dir = feature_dir
         self._param = param
+        self._get_action_type = get_action_type
         return None
 
     def _save_param(self, filename):
         all_param = {
-            'actions': self._actions_dict,
+            'action_types': self._action_types,
             'param': self._param,
             'feature_dir': self._feature_dir
         }
@@ -103,23 +103,33 @@ class Model():
         )
 
         fold_num = config.get_num_folds(self._feature_dir)
-        def prepare_data(df_file):
+        def prepare_data(df_file, is_training=False):
             df = pd.read_pickle(df_file)
             orig_features = config.get_orig_features(df)
             cols = [config.id_col]
+
             if config.label_col in df.columns:
                 cols += [config.label_col]
+
+            if is_training:
+                self._action_types = {}
+                for f in orig_features:
+                    self._action_types[f] = self._get_action_type(f)
+
             for f in orig_features:
-                actions = self._actions_dict.get(f, [])
+                action_type = self._actions_types[f]
                 f = F(f)
-                cols += f.get_features(df, actions)
+                cols += f.get_features(df, action_type)
+
             df = df[cols].copy()
             gc.collect()
             return df
 
         sum_pred = 0
         for i in range(fold_num):
-            df_train = prepare_data(config.get_feature_file(self._feature_dir, i, 'train'))
+            df_train = prepare_data(
+                config.get_feature_file(self._feature_dir, i, 'train'), True
+            )
             df_valid = prepare_data(config.get_feature_file(self._feature_dir, i, 'valid'))
             df_test = prepare_data(config.get_feature_file(self._feature_dir, i, 'test'))
             self._train(df_train, df_valid)
@@ -199,7 +209,6 @@ class RandomForest(Model):
             config.label_col: y_proba
         })
 
-
 class XGBoost_CV(Model):
     @staticmethod
     def example_param():
@@ -215,9 +224,6 @@ class XGBoost_CV(Model):
             'silent': True,
             # Control params
             'num_boost_round': 5000,
-            # General parameters
-            'n_splits': 5,
-            'random_state': 456,
         }
 
     def _train(self, df_train, df_valid):
@@ -261,8 +267,6 @@ class Sklearn_gradientboosting(Model):
             'n_estimators': 500,
             'max_depth': 4,
             'subsample': 0.8,
-            'n_splits': 5,
-            'random_state': 456,
             'min_impurity_decrease': 0.001
         }
 
@@ -295,8 +299,6 @@ class Catboost_CV(Model):
             'l2_leaf_reg': 6,
             'loss_function': 'Logloss',
             'verbose': True,
-            'n_splits': 5,
-            'random_state': 456,
             'optimize_rounds': True
         }
 
@@ -328,6 +330,7 @@ class Catboost_CV(Model):
         })
 
 class Lightgbm_CV(Model):
+    @staticmethod
     def example_param():
         return {
             'metric': 'auc',
@@ -339,8 +342,6 @@ class Lightgbm_CV(Model):
             'bagging_fraction': 0.9,
             'bagging_freq': 10,
             'min_data': 500,
-            'n_splits': 5,
-            'random_state': 1025,
         }
 
     def _train(self, df_train, df_valid):
