@@ -22,29 +22,34 @@ def random_run(
         action_types,
         feature_dirs,
         drop_with_p = 0,
+        action_types_p = None,
         learning_rate = [0.04, 0.05, 0.06],
-        max_bin = [8, 9, 10],
-        max_depth = [4, 5, 6],
-        feature_fraction = [0.8, 0.9, 1],
-        bagging_fraction = [0.8, 0.9, 1],
-        subsample = [0.7, 0.8],
+        max_bin = [8, 10, 12],
+        max_depth = [5],
+        subsample = [0.8],
         subsample_freq = [10],
-        colsample_bytree = [0.7, 0.8],
+        colsample_bytree = [0.8],
+        lambda_l1 = [0, 3, 6],
+        lambda_l2 = [0, 3, 6],
+        verbose = [-1],
         n_estimators = [1500]
 ):
     feature_dir = choice(feature_dirs)
     param = {}
+    param['objective'] = 'binary'
     param['learning_rate'] = choice(learning_rate)
     param['max_bin'] = choice(max_bin)
     param['max_depth'] = choice(max_depth)
-    param['feature_fraction'] = choice(feature_fraction)
-    param['bagging_fraction'] = choice(bagging_fraction)
+    param['num_leaves'] = 2 ** param['max_depth']
     param['subsample'] = choice(subsample)
     param['subsample_freq'] = choice(subsample_freq)
     param['colsample_bytree'] = choice(colsample_bytree)
     param['n_estimators'] = choice(n_estimators)
+    param['verbose'] = choice(verbose)
     def get_action_type(feature):
-        return choose_action_type(feature, action_types, drop_with_p=drop_with_p)
+        return choose_action_type(
+            feature, action_types, drop_with_p=drop_with_p, p=action_types_p
+        )
     model = M(feature_dir, param, get_action_type)
     model.train_predict_eval_and_log()
 
@@ -62,8 +67,15 @@ if __name__ == '__main__':
         '--action-types',
         '-a',
         dest='action_types',
-        help='list of {}|{}|{}'.format(A.raw, A.prefer_one_hot, A.prefer_reorder),
+        help='list of {}'.format(A.all()),
         required=True,
+        type=str
+    )
+    parser.add_argument(
+        '--action-types-ps',
+        '-ap',
+        dest='action_types_p',
+        help='list of floats',
         type=str
     )
     parser.add_argument(
@@ -71,12 +83,12 @@ if __name__ == '__main__':
         '-d',
         dest='drop_with_p',
         help='drop feature with probability',
-        default=0.
+        default=0.,
         type=float
     )
     parser.add_argument(
         '--num-runs',
-        '-r',
+        '-n',
         dest='num_runs',
         help='num of runs, default is no limit',
         type=int,
@@ -84,9 +96,15 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
     feature_dirs = args.feature_dirs.split(',')
-    for _ in arange(args.num_runs):
+    action_types = args.action_types.split(',')
+    if args.action_types_p is not None:
+        action_types_p = [float(s) for s in args.action_types_p.split(',')]
+    else:
+        action_types_p = None
+    for _ in xrange(args.num_runs):
         random_run(
-            args.action_types,
+            action_types,
             feature_dirs,
-            drop_with_p = args.drop_with_p
+            drop_with_p = args.drop_with_p,
+            action_types_p = action_types_p
         )

@@ -123,7 +123,12 @@ class Prediction(object):
 
     @staticmethod
     def save(df, directory, filename):
-        save_df_to_file(df, config.pred_filename(directory, filename), overwrite=False)
+        save_df_to_file(
+            df,
+            config.pred_filename(directory, filename),
+            overwrite=False,
+            use_pickle=True
+        )
 
     @staticmethod
     def eval(df, filename):

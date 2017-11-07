@@ -23,10 +23,20 @@ class Action(object):
 class Action_type(object):
     dropping = 'dropping'
     raw = 'raw'
-    # one hot > reorder > raw
-    prefer_one_hot = 'one_hot'
-    # reorder > one hot > raw
-    prefer_reorder = 'reorder'
+    raw_more = 'raw_more'
+    one_hot = 'one_hot'
+    reorder = 'reorder'
+    reorder_more = 'reorder_more'
+    @staticmethod
+    def all():
+        return [
+            Action_type.dropping,
+            Action_type.raw,
+            Action_type.raw_more,
+            Action_type.one_hot,
+            Action_type.reorder,
+            Action_type.reorder_more
+        ]
 
 class Feature(object):
 
@@ -34,6 +44,7 @@ class Feature(object):
         if not name.startswith('ps_'):
             raise Exception('{} is not a valid feature'.format(name))
         self._name = name
+        self._ro_name = '{}_{}'.format(Action.reorder, self._name)
         suffix = name.split('_')[-1]
         if suffix == 'bin':
             self._type = Feature_type.binary
@@ -56,7 +67,6 @@ class Feature(object):
         self._mean = df_train[self._name].mean()
         self._median = df_train[self._name].median()
         self._reordered_group = self._label_group_mean.sort_values(config.label_col).reset_index(drop=True)
-        self._ro_name = '{}_{}'.format(Action.reorder, self._name)
         self._reordered_group.loc[:, self._ro_name] = self._reordered_group.index
         self._reordered_mean = self._reordered_group[self._ro_name].mean()
         self._reordered_median = self._reordered_group[self._ro_name].median()
@@ -109,78 +119,90 @@ class Feature(object):
             lambda df: (df[self._name] > self._median).astype(int)
         )
 
-    def _is_continuous(self):
-        return self._type == Feature_type.continuous
-
-    def _allow_one_hot(self):
-        return self._num_unique_values > 2 and self._num_unique_values < 7
-
-    def _allow_reorder(self):
-        return self._type != Feature_type.continuous or self._num_unique_values < 7
-
     def all_actions_without_dropping(self):
         actions = []
-        if self._allow_one_hot():
+        if self._num_unique_values > 2 and self._num_unique_values < 7:
             actions.append(Action.one_hot)
 
-        if self._allow_reorder():
+        if self._num_unique_values < 7:
             actions.append(Action.reorder)
             actions.append(Action.reorder_above_mean)
             actions.append(Action.reorder_above_median)
 
-        if self._is_continuous():
+        if self._type == Feature_type.continuous:
             actions.append(Action.above_mean)
             actions.append(Action.above_median)
         return actions
 
-    def _generate_actions(self, action_type):
+    def _has_one_hot(self, df):
+        return len([
+            c for c in df.columns
+            if c.startswith('{}_{}'.format(Action.one_hot, self._name))
+        ]) > 0
+
+    def _has_reorder(self, df):
+        return len([
+            c for c in df.columns
+            if c.startswith('{}_{}'.format(Action.reorder, self._name))
+        ]) > 0
+
+    def _generate_actions(self, df, action_type):
         if action_type == Action_type.dropping:
             return [Action.dropping]
         elif action_type == Action_type.raw:
-            if self._is_continuous():
+            return []
+        elif action_type == Action_type.raw_more:
+            if self._type == Feature_type.continuous:
                 return [Action.above_mean, Action.above_median]
             else:
                 return []
-        elif action_type == Action_type.prefer_one_hot:
-            if self._allow_one_hot():
+        elif action_type == Action_type.one_hot:
+            if self._has_one_hot(df):
                 return [Action.one_hot, Action.dropping]
-            elif self._allow_reorder():
+            else:
+                return self._generate_actions(df, Action_type.raw)
+        elif action_type == Action_type.reorder:
+            if self._has_reorder(df):
+                return [Action.reorder]
+            else:
+                return self._generate_actions(df, Action_type.raw)
+        elif action_type == action_type.reorder_more:
+            if self._has_reorder(df):
                 return [
                     Action.reorder,
                     Action.reorder_above_mean,
                     Action.reorder_above_median,
-                    Action.dropping
                 ]
             else:
-                return self.generate_actions(Action_type.raw)
-        elif action_type == Action_type.prefer_reorder:
-            if self._allow_reorder():
+                return self._generate_actions(df, Action_type.raw_more)
+        elif action_type == Action_type.prefer_one_hot:
+            if self._has_one_hot(df):
+                return [Action.one_hot, Action.dropping]
+            elif self._has_reorder(df):
                 return [
                     Action.reorder,
                     Action.reorder_above_mean,
                     Action.reorder_above_median,
-                    Action.dropping
                 ]
             else:
-                return self.generate_actions(Action_type.prefer_one_hot)
+                return self._generate_actions(df, Action_type.raw)
         else:
             raise Exception('Wrong action type {}')
 
-    # This function will modify df
     def get_features(self, df, action_type):
-        self._features = [self._name]
-        action_dict = {
-            Action.dropping: self._dropping,
-            Action.one_hot: self._one_hot,
-            Action.above_mean: self._above_mean,
-            Action.above_median: self._above_median,
-            Action.reorder: self._reorder,
-            Action.reorder_above_mean: self._reorder_above_mean,
-            Action.reorder_above_median: self._reorder_above_median
-        }
-        for action in self._generate_actions(action_type):
-            action_dict[action](df)
-        return self._features
+        features = []
+        actions = self._generate_actions(df, action_type)
+        if Action.dropping in actions:
+            features = []
+        else:
+            features = [self._name]
+        for action in actions:
+            if action != Action.dropping:
+                features += [
+                    c for c in df.columns
+                    if c.startswith('{}_{}'.format(action, self._name))
+                ]
+        return features
 
 class FeatureExtractor():
     def __init__(self):

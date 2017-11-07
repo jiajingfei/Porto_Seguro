@@ -22,8 +22,12 @@ def save_to_file(filename, save_fn, allow_existing=False):
         os.system('mkdir -p {}'.format(path))
     save_fn(filename)
 
-def save_df_to_file(df, filename, overwrite=False):
-    save_to_file(filename, lambda f: df.to_csv(f, index=False), allow_existing=overwrite)
+def save_df_to_file(df, filename, overwrite=False, use_pickle=False):
+    if use_pickle:
+        save_fn = lambda f: df.to_pickle(f)
+    else:
+        save_fn = lambda f: df.to_csv(f, index=False)
+    save_to_file(filename, save_fn, allow_existing=overwrite)
 
 def gini_normalized(a, p):
     def gini(actual, pred, cmpcol=0, sortcol=1):
