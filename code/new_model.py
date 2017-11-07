@@ -76,7 +76,7 @@ class Model():
                 valid_gini,
                 test_gini,
                 fold
-            ] + self._param.values() + ['{}'.format(features)]
+            ] + self._param.values() + [':'.join(features)]
             def write_log(log_file):
                 if os.path.exists(log_file):
                     f = open(log_file, 'a')
@@ -111,7 +111,7 @@ class Model():
             if config.label_col in df.columns:
                 cols += [config.label_col]
 
-            if is_training:
+            if is_training and not hasattr(self, '_action_types'):
                 self._action_types = {}
                 for f in orig_features:
                     self._action_types[f] = self._get_action_type(f)

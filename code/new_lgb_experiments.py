@@ -11,7 +11,7 @@ def rand():
     return np.random.uniform()
 
 def choose_action_type(feature, action_types, p=None, drop_calc=True, drop_with_p=0):
-    if rand() < p:
+    if rand() < drop_with_p:
         return A.dropping
     elif drop_calc and feature.startswith('ps_calc'):
         return A.dropping
