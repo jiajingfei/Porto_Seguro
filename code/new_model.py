@@ -54,7 +54,7 @@ class Model():
 
     def train_predict_eval_and_log(self):
         time  = dt.datetime.now()
-        def to_save_fn(train_gini, valid_gini, test_gini, fold):
+        def to_save_fn(train_gini, valid_gini, test_gini, fold, features):
             header = ','.join([
                 'feature_dir',
                 'user',
@@ -65,7 +65,7 @@ class Model():
                 'valid_gini',
                 'test_gini',
                 'fold_str'
-            ])
+            ] + self._param.keys() + ['features'])
             new_row = [
                 self._feature_dir,
                 getpass.getuser(),
@@ -76,7 +76,7 @@ class Model():
                 valid_gini,
                 test_gini,
                 fold
-            ]
+            ] + self._param.values() + ['{}'.format(features)]
             def write_log(log_file):
                 if os.path.exists(log_file):
                     f = open(log_file, 'a')
@@ -117,21 +117,21 @@ class Model():
                     self._action_types[f] = self._get_action_type(f)
 
             for f in orig_features:
-                action_type = self._actions_types[f]
+                action_type = self._action_types[f]
                 f = F(f)
                 cols += f.get_features(df, action_type)
 
             df = df[cols].copy()
             gc.collect()
-            return df
+            return df, cols
 
         sum_pred = 0
         for i in range(fold_num):
-            df_train = prepare_data(
+            df_train, cols = prepare_data(
                 config.get_feature_file(self._feature_dir, i, 'train'), True
             )
-            df_valid = prepare_data(config.get_feature_file(self._feature_dir, i, 'valid'))
-            df_test = prepare_data(config.get_feature_file(self._feature_dir, i, 'test'))
+            df_valid, _ = prepare_data(config.get_feature_file(self._feature_dir, i, 'valid'))
+            df_test, _ = prepare_data(config.get_feature_file(self._feature_dir, i, 'test'))
             self._train(df_train, df_valid)
             fold = 'fold{}'.format(i)
             valid_pred = self._pred(df_valid)
@@ -147,7 +147,7 @@ class Model():
             valid_gini = get_gini(df_valid)
             save_to_file(
                 filename=config.model_log_file(self._feature_dir),
-                save_fn=to_save_fn(train_gini, valid_gini, test_gini, fold),
+                save_fn=to_save_fn(train_gini, valid_gini, test_gini, fold, cols),
                 allow_existing=True
             )
 
@@ -155,12 +155,13 @@ class Model():
             config.id_col: df_test[config.id_col],
             config.label_col: sum_pred
         })
-        P.save(sum_pred, self._feature_dir, '{}-test-{}'.format(self._identifier, 'sum'))
+        fold = 'sum'
+        P.save(sum_pred, self._feature_dir, '{}-test-{}'.format(self._identifier, fold))
         target_file = config.get_feature_file(self._feature_dir, None, 'test_label')
         test_gini = P.eval(sum_pred, target_file)
         save_to_file(
             filename=config.model_log_file(self._feature_dir),
-            save_fn=to_save_fn(None, None, test_gini, fold),
+            save_fn=to_save_fn(None, None, test_gini, fold, cols),
             allow_existing=True
         )
         save_to_file(
@@ -227,7 +228,6 @@ class XGBoost_CV(Model):
         }
 
     def _train(self, df_train, df_valid):
-        assert (self._param['n_splits'] > 1)
         def gini_xgb(preds, dtrain):
             labels = dtrain.get_label()
             gini_score = gini_normalized(labels, preds)
@@ -271,7 +271,6 @@ class Sklearn_gradientboosting(Model):
         }
 
     def _train(self, df_train, df_valid):
-        assert (self._param['n_splits'] > 1)
         param = {
             k:v for (k, v) in self._param.items() if k not in ['features', 'n_splits']
         }
@@ -303,7 +302,6 @@ class Catboost_CV(Model):
         }
 
     def _train(self, df_train, df_valid):
-        assert (self._param['n_splits'] > 1)
         param = {
             k:v for (k, v) in self._param.items()
             if k not in ['features', 'n_splits', 'random_state', 'optimize_rounds']
@@ -345,8 +343,6 @@ class Lightgbm_CV(Model):
         }
 
     def _train(self, df_train, df_valid):
-        assert (self._param['n_splits'] > 1)
-
         def gini_lgb(preds, dtrain):
             y = list(dtrain.get_label())
             score = gini(y, preds) / gini(y, y)
