@@ -166,7 +166,7 @@ class Feature(object):
                 return [Action.reorder]
             else:
                 return self._generate_actions(df, Action_type.raw)
-        elif action_type == action_type.reorder_more:
+        elif action_type == Action_type.reorder_more:
             if self._has_reorder(df):
                 return [
                     Action.reorder,
@@ -175,23 +175,10 @@ class Feature(object):
                 ]
             else:
                 return self._generate_actions(df, Action_type.raw_more)
-        elif action_type == Action_type.prefer_one_hot:
-            if self._has_one_hot(df):
-                return [Action.one_hot, Action.dropping]
-            elif self._has_reorder(df):
-                return [
-                    Action.reorder,
-                    Action.reorder_above_mean,
-                    Action.reorder_above_median,
-                ]
-            else:
-                return self._generate_actions(df, Action_type.raw)
         else:
-            raise Exception('Wrong action type {}')
+            raise Exception('Wrong action type {}'.format(action_type))
 
-    def get_features(self, df, action_type):
-        features = []
-        actions = self._generate_actions(df, action_type)
+    def get_features_with_actions(self, df, actions):
         if Action.dropping in actions:
             features = []
         else:
@@ -203,6 +190,11 @@ class Feature(object):
                     if c.startswith('{}_{}'.format(action, self._name))
                 ]
         return features
+
+    def get_features(self, df, action_type):
+        features = []
+        actions = self._generate_actions(df, action_type)
+        return self.get_features_with_actions(df, actions)
 
 class FeatureExtractor():
     def __init__(self):
@@ -256,9 +248,9 @@ class FeatureExtractor():
                     f = Feature(f)
                     f.load_df_train(df_train)
                     actions = f.all_actions_without_dropping()
-                    features += (f.get_features(df_train, actions))
-                    _ = f.get_features(df_valid, actions)
-                    _ = f.get_features(df_test, actions)
+                    features += (f.get_features_with_actions(df_train, actions))
+                    _ = f.get_features_with_actions(df_valid, actions)
+                    _ = f.get_features_with_actions(df_test, actions)
 
             save_to_file(
                 config.get_feature_file(feature_dir, fold_num, 'train'),
