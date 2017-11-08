@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 import argparse
+import timeit
 from new_model import Lightgbm_CV as M
 from new_feature import FeatureExtractor as FE
 from new_feature import Feature as F
@@ -45,6 +46,8 @@ def random_run(
     param['subsample_freq'] = choice(subsample_freq)
     param['colsample_bytree'] = choice(colsample_bytree)
     param['n_estimators'] = choice(n_estimators)
+    param['lambda_l1'] = choice(lambda_l1)
+    param['lambda_l2'] = choice(lambda_l2)
     param['verbose'] = choice(verbose)
     def get_action_type(feature):
         return choose_action_type(
@@ -101,6 +104,7 @@ if __name__ == '__main__':
         action_types_p = [float(s) for s in args.action_types_p.split(',')]
     else:
         action_types_p = None
+    start_time = timeit.default_timer()
     for _ in xrange(args.num_runs):
         random_run(
             action_types,
@@ -108,3 +112,5 @@ if __name__ == '__main__':
             drop_with_p = args.drop_with_p,
             action_types_p = action_types_p
         )
+    elapsed = timeit.default_timer() - start_time
+    print '{} runs finished, elapsed time = {}'.format(args.num_runs, elapsed)
