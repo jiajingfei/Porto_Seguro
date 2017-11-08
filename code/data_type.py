@@ -16,7 +16,7 @@ class Training_data(object):
 
     def __output_generated_data(self, train, test, output_data_dir):
         if not os.path.exists(config.get_data_dir(output_data_dir)):
-            os.system('mkdir -p {}'.format(config.get_data_dir(output_data_dir)))
+            os.makedirs(config.get_data_dir(output_data_dir))
         test_target = test[[config.id_col, config.label_col]]
         del test[config.label_col]
         train_file = config.get_data_file(output_data_dir, 'train')
@@ -41,7 +41,7 @@ class Training_data(object):
     def output_small_data_for_sanity_check(self, nrows=500):
         data_dir = config.get_data_dir(config.data_sanity_dir)
         if not os.path.exists(data_dir):
-            os.system('mkdir -p {}'.format(data_dir))
+            os.makedirs(data_dir)
         if os.path.exists(data_dir):
             data_dir = os.path.abspath(data_dir)
             print('WARNING: {} already exists, will overwrite it'.format(data_dir))
@@ -122,11 +122,10 @@ class Training_data(object):
 class Prediction(object):
 
     @staticmethod
-    @staticmethod
-    def save(df, directory, filename):
+    def save(df, dir_name, filename):
         save_df_to_file(
             df,
-            config.pred_filename(directory, filename),
+            config.pred_filename(dir_name, filename),
             overwrite=False,
             use_pickle=True
         )

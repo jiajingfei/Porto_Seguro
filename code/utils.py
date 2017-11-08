@@ -19,7 +19,7 @@ def save_to_file(filename, save_fn, allow_existing=False):
             raise Exception('{} already exists'.format(filename))
     path, _ = os.path.split(filename)
     if not os.path.isdir(path):
-        os.system('mkdir -p {}'.format(path))
+        os.makedirs(path)
     save_fn(filename)
 
 def save_df_to_file(df, filename, overwrite=False, use_pickle=False):

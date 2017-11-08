@@ -5,11 +5,11 @@ import config
 class Ensembler():
 
     @staticmethod
-    def load_file(filename_with_dir, key=None):
+    def load_file(abs_path, key=None):
         if key is None:
             _, filename = os.path.split(filename_with_dir)
             key = filename.replace('.csv', '')
-        df = pd.read_csv(filename_with_dir)
+        df = pd.read_csv(abs_path)
         return df.rename(columns = {config.label_col: key})
 
     @staticmethod
