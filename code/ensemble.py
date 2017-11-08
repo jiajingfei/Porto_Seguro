@@ -5,62 +5,27 @@ import config
 class Ensembler():
 
     @staticmethod
-    def load_file(abs_path, key=None):
-        if key is None:
-            _, filename = os.path.split(filename_with_dir)
-            key = filename.replace('.csv', '')
-        df = pd.read_csv(abs_path)
-        return df.rename(columns = {config.label_col: key})
+    def load_file(dir_name, identifier, mode, file_type='pickle'):
+        if mode == 'valid':
+            prefix = 'valid'
+        elif mode == 'test':
+            prefix = 'test-sum'
+        else:
+            raise Exception('wrong mode {}, not in [valid|test]'.format(mode))
+        pred_dir = config.get_pred_dir(dir_name)
+        files = os.listdir(pred_dir)
+        relevant_files = [f for f in files if f.startswith(identifier)]
+        relevant_files = [
+            f for f in relevant_files
+            if f.startswith(identifier+'-'+prefix)
+        ]
+        if file_type == 'pickle':
+            read_file = pd.read_pickle
+        elif file_type == 'csv':
+            read_file = pd.read_csv
+        else:
+            raise Exception('wrong file_type {}, not in [pickle|csv]'.format(file_type))
 
-    @staticmethod
-    def load_directory(directory, mode):
-        files = os.listdir(directory)
-        keys = list(set([f.split('-')[0] for f in files]))
-        # Hard coded threshold
-        keys = [k for k in keys if len(k) == 6]
-
-        def load_valid(directory, files, key):
-            files_to_load = [f for f in files if f.startswith(key+'-valid')]
-            dfs = [pd.read_csv(os.path.join(directory, f)) for f in files_to_load]
-            df = pd.concat(dfs)
-            return df.rename(columns={config.label_col: key})
-
-        def load_test(directory, files, key):
-            files_to_load = [f for f in files if f.startswith(key+'-test-fold')]
-            files_to_load.sort()
-            df = None
-            for i, f in enumerate(files_to_load):
-                df0 = pd.read_csv(os.path.join(directory, f))
-                df0 = df0.rename(columns={ config.label_col: key + '_' + str(i) })
-                if df is None:
-                    df = df0
-                else:
-                    df = df.merge(df0, on=config.id_col)
-            return df
-
-        def load_test_sum(directory, files, key):
-            files_to_load = [f for f in files if f.startswith(key+'-test-sum')]
-            file_to_load = os.path.join(directory, files_to_load[0])
-            df = pd.read_csv(file_to_load)
-            return df.rename(columns={config.label_col: key})
-
-        def load_key(directory, files, key, mode):
-            if mode == 'valid':
-                return load_valid(directory, files, key)
-            elif mode == 'test-folds':
-                return load_test(directory, files, key)
-            elif mode == 'test-sum':
-                return load_test_sum(directory, files, key)
-            else:
-                raise Exception('wrong mode')
-
-        df = None
-
-        for key in keys:
-            df0 = load_key(directory, files, key, mode)
-            if df is None:
-                df = df0
-            else:
-                df = df.merge(df0, on=config.id_col)
-
-        return df.sort_values(by=config.id_col).reset_index(drop=True)
+        relevant_files.sort()
+        dfs = [read_file(os.path.join(pred_dir, f)) for f in relevant_files]
+        return pd.concat(dfs)

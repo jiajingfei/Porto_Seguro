@@ -124,7 +124,7 @@ class Feature(object):
         if self._num_unique_values > 2 and self._num_unique_values < 7:
             actions.append(Action.one_hot)
 
-        if self._num_unique_values < 7:
+        if self._num_unique_values < 7 or self._type != Feature_type.continuous:
             actions.append(Action.reorder)
             actions.append(Action.reorder_above_mean)
             actions.append(Action.reorder_above_median)
@@ -180,19 +180,30 @@ class Feature(object):
 
     def get_features_with_actions(self, df, actions):
         if Action.dropping in actions:
-            features = []
+            self._features = []
         else:
-            features = [self._name]
+            self._features = [self._name]
+        action_dict = {
+            Action.one_hot: self._one_hot,
+            Action.above_mean: self._above_mean,
+            Action.above_median: self._above_median,
+            Action.reorder: self._reorder,
+            Action.reorder_above_mean: self._reorder_above_mean,
+            Action.reorder_above_median: self._reorder_above_median 
+        }
         for action in actions:
             if action != Action.dropping:
-                features += [
+                new_features = [
                     c for c in df.columns
                     if c.startswith('{}_{}'.format(action, self._name))
                 ]
-        return features
+                self._features += new_features
+                if new_features == []:
+                    action_dict[action](df)
+
+        return self._features
 
     def get_features(self, df, action_type):
-        features = []
         actions = self._generate_actions(df, action_type)
         return self.get_features_with_actions(df, actions)
 
@@ -202,6 +213,7 @@ class FeatureExtractor():
 
     def __hand_design(self, df):
         df.loc[:, 'ps_car_13_x_ps_reg_03'] = df['ps_car_13'] * df['ps_reg_03']
+        del df['ps_car_11_cat']
 
     def __revert_one_hot(self, df):
         def hlp(features, new_feature):
@@ -227,7 +239,6 @@ class FeatureExtractor():
         train_data = T(data_dir)
         test = pd.read_csv(config.get_data_file(data_dir, 'test'))
         data_test_target_file = config.get_data_file(data_dir, 'test_label')
-        print data_test_target_file
         if os.path.exists(data_test_target_file):
             test_target = pd.read_csv(data_test_target_file)
         else:
