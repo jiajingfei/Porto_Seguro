@@ -122,6 +122,7 @@ class Training_data(object):
 class Prediction(object):
 
     @staticmethod
+    @staticmethod
     def save(df, directory, filename):
         save_df_to_file(
             df,
