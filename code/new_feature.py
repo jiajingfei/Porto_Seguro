@@ -27,6 +27,7 @@ class Action_type(object):
     one_hot = 'one_hot'
     reorder = 'reorder'
     reorder_more = 'reorder_more'
+    all_actions = 'all_actions'
     @staticmethod
     def all():
         return [
@@ -35,7 +36,8 @@ class Action_type(object):
             Action_type.raw_more,
             Action_type.one_hot,
             Action_type.reorder,
-            Action_type.reorder_more
+            Action_type.reorder_more,
+            Action_type.all_actions
         ]
 
 class Feature(object):
@@ -175,6 +177,19 @@ class Feature(object):
                 ]
             else:
                 return self._generate_actions(df, Action_type.raw_more)
+        elif action_type == Action_type.all_actions:
+            actions = []
+            if self._type == Feature_type.continuous:
+                actions += [Action.above_mean, Action.above_median]
+            if self._has_one_hot(df):
+                actions += [Action.one_hot]
+            if self._has_reorder(df):
+                actions += [
+                    Action.reorder,
+                    Action.reorder_above_mean,
+                    Action.reorder_above_median,
+                ]
+            return actions
         else:
             raise Exception('Wrong action type {}'.format(action_type))
 
@@ -189,7 +204,7 @@ class Feature(object):
             Action.above_median: self._above_median,
             Action.reorder: self._reorder,
             Action.reorder_above_mean: self._reorder_above_mean,
-            Action.reorder_above_median: self._reorder_above_median 
+            Action.reorder_above_median: self._reorder_above_median
         }
         for action in actions:
             if action != Action.dropping:

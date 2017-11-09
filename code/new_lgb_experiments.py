@@ -30,8 +30,8 @@ def random_run(
         subsample = [0.8],
         subsample_freq = [10],
         colsample_bytree = [0.8],
-        lambda_l1 = [0, 3, 6],
-        lambda_l2 = [0, 3, 6],
+        lambda_l1 = [1, 3, 9, 27],
+        lambda_l2 = [1, 3, 9, 27],
         verbose = [-1],
         n_estimators = [1500]
 ):

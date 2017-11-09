@@ -350,7 +350,7 @@ class Lightgbm_CV(Model):
 
         param = {
             k:v for (k, v) in self._param.items() if
-            k not in ['features', 'n_splits', 'random_state', 'excluded_features']
+            k not in ['features', 'action_type']
         }
         train_X = remove_id_and_label(df_train)
         valid_X = remove_id_and_label(df_valid)
