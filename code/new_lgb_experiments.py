@@ -22,6 +22,7 @@ def choose_action_type(feature, action_types, p=None, drop_calc=True, drop_with_
 def random_run(
         action_types,
         feature_dirs,
+        suffix=None,
         drop_with_p = 0,
         action_types_p = None,
         learning_rate = [0.04, 0.05, 0.06],
@@ -54,7 +55,7 @@ def random_run(
             feature, action_types, drop_with_p=drop_with_p, p=action_types_p
         )
     model = M(feature_dir, param, get_action_type)
-    model.train_predict_eval_and_log()
+    model.train_predict_eval_and_log(suffix)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='tuning hyperparameter')
@@ -97,6 +98,13 @@ if __name__ == '__main__':
         type=int,
         default=10000000
     )
+    parser.add_argument(
+        '--suffix',
+        '-s',
+        dest='suffix',
+        help='feature directory suffix',
+        type=str,
+    )
     args = parser.parse_args()
     feature_dirs = args.feature_dirs.split(',')
     action_types = args.action_types.split(',')
@@ -109,6 +117,7 @@ if __name__ == '__main__':
         random_run(
             action_types,
             feature_dirs,
+            suffix=args.suffix,
             drop_with_p = args.drop_with_p,
             action_types_p = action_types_p
         )

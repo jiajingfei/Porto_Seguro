@@ -52,7 +52,7 @@ class Model():
     def _pred(self, df):
         raise Exception('Unimplemented in abstract class')
 
-    def train_predict_eval_and_log(self):
+    def train_predict_eval_and_log(self, output_dir_suffix=None):
         time  = dt.datetime.now()
         def to_save_fn(train_gini, valid_gini, test_gini, fold, features):
             header = ','.join([
@@ -96,8 +96,11 @@ class Model():
                     self._pred(df)[config.label_col]
                 )
 
+        output_dir = self._feature_dir
+        if output_dir_suffix is not None:
+            output_dir += '_' + output_dir_suffix
         param_file = config.model_filename(
-            self._feature_dir,
+            output_dir,
             filename='param',
             identifier=self._identifier
         )
@@ -135,9 +138,9 @@ class Model():
             self._train(df_train, df_valid)
             fold = 'fold{}'.format(i)
             valid_pred = self._pred(df_valid)
-            P.save(valid_pred, self._feature_dir, '{}-valid-fold{}'.format(self._identifier, i))
+            P.save(valid_pred, output_dir, '{}-valid-fold{}'.format(self._identifier, i))
             test_pred = self._pred(df_test)
-            P.save(test_pred, self._feature_dir, '{}-test-fold{}'.format(self._identifier, i))
+            P.save(test_pred, output_dir, '{}-test-fold{}'.format(self._identifier, i))
 
             target_file = config.get_feature_file(self._feature_dir, None, 'test_label')
             test_gini = P.eval(test_pred, target_file)
@@ -146,7 +149,7 @@ class Model():
             train_gini = get_gini(df_train)
             valid_gini = get_gini(df_valid)
             save_to_file(
-                filename=config.model_log_file(self._feature_dir),
+                filename=config.model_log_file(output_dir),
                 save_fn=to_save_fn(train_gini, valid_gini, test_gini, fold, cols),
                 allow_existing=True
             )
@@ -156,11 +159,11 @@ class Model():
             config.label_col: sum_pred
         })
         fold = 'sum'
-        P.save(sum_pred, self._feature_dir, '{}-test-{}'.format(self._identifier, fold))
+        P.save(sum_pred, output_dir, '{}-test-{}'.format(self._identifier, fold))
         target_file = config.get_feature_file(self._feature_dir, None, 'test_label')
         test_gini = P.eval(sum_pred, target_file)
         save_to_file(
-            filename=config.model_log_file(self._feature_dir),
+            filename=config.model_log_file(output_dir),
             save_fn=to_save_fn(None, None, test_gini, fold, cols),
             allow_existing=True
         )
